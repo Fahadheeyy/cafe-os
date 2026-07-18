@@ -94,7 +94,16 @@ export function FloorOps({ manageTablesHref = "/owner/tables" }: { manageTablesH
       <PageHeader
         title="Live floor"
         subtitle="Active tables, kitchen status, and one-tap billing"
-        actions={<Link to={manageTablesHref} className="text-xs text-primary hover:underline">Tables →</Link>}
+        actions={
+          <div className="flex items-center gap-4">
+            <Link to="/order/takeaway" className="text-xs font-medium bg-blue-50 text-blue-600 px-3 py-1.5 rounded-full hover:bg-blue-100 transition">
+              + New Takeaway
+            </Link>
+            <Link to={manageTablesHref} className="text-xs text-primary hover:underline">
+              Tables →
+            </Link>
+          </div>
+        }
       />
 
       <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-5">

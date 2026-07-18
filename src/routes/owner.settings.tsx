@@ -55,6 +55,10 @@ function SettingsPage() {
               <Label>Tax %</Label>
               <Input type="number" step="0.01" value={form.taxPercent} onChange={(e) => setForm({ ...form, taxPercent: Number(e.target.value) })} required />
             </div>
+            <div className="space-y-1.5">
+              <Label>Parcel Fee</Label>
+              <Input type="number" step="0.01" value={form.parcelFee ?? 0} onChange={(e) => setForm({ ...form, parcelFee: Number(e.target.value) })} required />
+            </div>
           </div>
           <div className="pt-2">
             <Button type="submit">Save changes</Button>

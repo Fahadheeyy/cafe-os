@@ -11,6 +11,7 @@ import { ManagerShell } from "@/components/manager-shell";
 import { FloorOps } from "@/components/floor-ops";
 import { StatCard } from "@/components/ui-kit";
 import { useStore, formatMoney } from "@/lib/store";
+import { useOrders } from "@/hooks/use-orders";
 import { todayRange } from "@/lib/date-range";
 
 export const Route = createFileRoute("/manager/dashboard")({
@@ -25,7 +26,7 @@ export const Route = createFileRoute("/manager/dashboard")({
 });
 
 function ManagerDashboard() {
-  const orders = useStore((s) => s.orders);
+  const { data: orders = [] } = useOrders();
   const settings = useStore((s) => s.settings);
 
   const kpis = useMemo(() => {

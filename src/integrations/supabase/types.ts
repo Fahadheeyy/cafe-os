@@ -22,6 +22,7 @@ export type Database = {
           id: string
           logo: string | null
           name: string
+          parcel_fee: number
           tax_percent: number
           updated_at: string
         }
@@ -32,6 +33,7 @@ export type Database = {
           id?: string
           logo?: string | null
           name: string
+          parcel_fee?: number
           tax_percent?: number
           updated_at?: string
         }
@@ -42,6 +44,7 @@ export type Database = {
           id?: string
           logo?: string | null
           name?: string
+          parcel_fee?: number
           tax_percent?: number
           updated_at?: string
         }
@@ -207,10 +210,12 @@ export type Database = {
           staff_id: string | null
           staff_name: string
           status: Database["public"]["Enums"]["order_status"]
-          table_id: string
-          table_name: string
+          table_id: string | null
+          table_name: string | null
           total: number
           updated_at: string
+          order_type: "dine_in" | "takeaway"
+          parcel_fee: number
         }
         Insert: {
           business_id: string
@@ -224,10 +229,12 @@ export type Database = {
           staff_id?: string | null
           staff_name?: string
           status?: Database["public"]["Enums"]["order_status"]
-          table_id: string
-          table_name: string
+          table_id?: string | null
+          table_name?: string | null
           total?: number
           updated_at?: string
+          order_type?: "dine_in" | "takeaway"
+          parcel_fee?: number
         }
         Update: {
           business_id?: string
@@ -241,10 +248,12 @@ export type Database = {
           staff_id?: string | null
           staff_name?: string
           status?: Database["public"]["Enums"]["order_status"]
-          table_id?: string
-          table_name?: string
+          table_id?: string | null
+          table_name?: string | null
           total?: number
           updated_at?: string
+          order_type?: "dine_in" | "takeaway"
+          parcel_fee?: number
         }
         Relationships: [
           {

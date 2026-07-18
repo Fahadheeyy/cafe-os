@@ -29,8 +29,9 @@ export function useProducts() {
 
   useEffect(() => {
     if (!bid) return;
+    const channelId = crypto.randomUUID();
     const channel = supabase
-      .channel(`products:${bid}`)
+      .channel(`products:${bid}:${channelId}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "products" }, () => {
         qc.invalidateQueries({ queryKey: productKeys.all(bid) });
       })

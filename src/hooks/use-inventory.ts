@@ -22,15 +22,20 @@ function useRealtime(table: string, keys: readonly (readonly unknown[])[]) {
   const { business } = useAuth();
   const qc = useQueryClient();
   const bid = business?.id ?? "";
+  
+  const keysStr = JSON.stringify(keys);
+
   useEffect(() => {
     if (!bid) return;
-    const ch = supabase.channel(`${table}:${bid}`)
+    const parsedKeys = JSON.parse(keysStr);
+    const channelId = crypto.randomUUID();
+    const ch = supabase.channel(`${table}:${bid}:${channelId}`)
       .on("postgres_changes", { event: "*", schema: "public", table }, () => {
-        for (const k of keys) qc.invalidateQueries({ queryKey: k });
+        for (const k of parsedKeys) qc.invalidateQueries({ queryKey: k });
       })
       .subscribe();
     return () => { supabase.removeChannel(ch); };
-  }, [bid, qc, table, keys]);
+  }, [bid, qc, table, keysStr]);
 }
 
 // ─── Stock items ────────────────────────────────────────────────────────────
@@ -119,7 +124,7 @@ export function useCreatePurchaseRequest() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (v: Parameters<typeof inv.createPurchaseRequest>[0]) =>
-      inv.createPurchaseRequest(v, profile?.name ?? "Staff"),
+      inv.createPurchaseRequest(v, profile?.name ?? "Staff", business?.id ?? ""),
     onSuccess: () => qc.invalidateQueries({ queryKey: invKeys.requests(business?.id ?? "") }),
   });
 }

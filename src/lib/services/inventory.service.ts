@@ -151,10 +151,11 @@ export async function listPurchaseRequests(): Promise<PurchaseRequest[]> {
 
 export async function createPurchaseRequest(v: {
   stockItemId: string; requestedQuantity: number; unit: Unit; priority: Priority; notes?: string;
-}, requesterName: string) {
+}, requesterName: string, businessId: string) {
   if (!v.stockItemId) throw new Error("Please select a stock item");
   if (!Number.isFinite(v.requestedQuantity) || v.requestedQuantity <= 0) throw new Error("Requested quantity must be > 0");
   const { error } = await supabase.from("purchase_requests").insert({
+    business_id: businessId,
     stock_item_id: v.stockItemId, requested_quantity: v.requestedQuantity,
     unit: v.unit, priority: v.priority, notes: v.notes ?? null,
     requested_by_name: requesterName,

@@ -64,7 +64,15 @@ export function RequestsView({ role }: { role: "owner" | "chef" }) {
               <Button className="sm:w-auto w-full"><Plus className="h-4 w-4 mr-1" /> New Request</Button>
             </DialogTrigger>
             <NewRequestForm
-              onSubmit={(v) => { create(v); toast.success("Request submitted"); setOpen(false); }}
+              onSubmit={async (v) => { 
+                try {
+                  await create(v); 
+                  toast.success("Request submitted"); 
+                  setOpen(false); 
+                } catch (err: any) {
+                  toast.error(err.message || "Failed to create request");
+                }
+              }}
             />
           </Dialog>
         )}

@@ -7,6 +7,8 @@ import { LogOut, Coffee } from "lucide-react";
 import { AuthGuard } from "@/components/auth-guard";
 import { useStore, formatMoney, type TableStatus } from "@/lib/store";
 import { useAuth, useCurrentUser } from "@/hooks/use-auth";
+import { useTables } from "@/hooks/use-tables";
+import { useOrders } from "@/hooks/use-orders";
 import { Button } from "@/components/ui/button";
 
 export const Route = createFileRoute("/staff")({
@@ -25,8 +27,8 @@ const statusStyle: Record<TableStatus, { dot: string; label: string; ring: strin
 };
 
 function StaffHome() {
-  const tables = useStore((s) => s.tables);
-  const orders = useStore((s) => s.orders);
+  const { data: tables = [] } = useTables();
+  const { data: orders = [] } = useOrders();
   const settings = useStore((s) => s.settings);
   const user = useCurrentUser();
   const { signOut, business } = useAuth();
@@ -66,6 +68,18 @@ function StaffHome() {
           <p className="text-xs text-muted-foreground">{tables.filter((t) => t.status === "available").length} of {tables.length} available</p>
         </div>
         <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+          <Link
+            to="/order/$tableId"
+            params={{ tableId: "takeaway" }}
+            className={`p-5 rounded-2xl border shadow-sm ring-1 ring-blue-500/30 bg-blue-50/50 active:scale-[0.98] transition text-left`}
+          >
+            <div className="flex items-center gap-1.5">
+              <span className={`h-2 w-2 rounded-full bg-blue-500`} />
+              <span className="text-[11px] text-muted-foreground uppercase tracking-wider">Takeaway</span>
+            </div>
+            <p className="mt-3 text-xl font-semibold tracking-tight">Parcel Order</p>
+            <p className="text-sm text-muted-foreground mt-1">Tap to start</p>
+          </Link>
           {tables.map((t) => {
             const s = statusStyle[t.status];
             const bill = billFor(t.id);

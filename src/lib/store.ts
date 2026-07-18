@@ -75,7 +75,7 @@ export type Order = {
 };
 
 
-export type Settings = { restaurantName: string; logo?: string; currency: string; taxPercent: number };
+export type Settings = { restaurantName: string; logo?: string; currency: string; taxPercent: number; parcelFee: number; };
 
 // Inventory
 export type StockCategory = "Dairy" | "Beverages" | "Bakery" | "Produce" | "Meat" | "Groceries" | "Other";
@@ -287,7 +287,7 @@ export const useStore = create<State>()(
       products: defaultProducts,
       tables: defaultTables,
       orders: [],
-      settings: { restaurantName: "CafeOS", currency: "₹", taxPercent: 5 },
+      settings: { restaurantName: "CafeOS", currency: "₹", taxPercent: 5, parcelFee: 0 },
       stockItems: defaultStock,
       stockHistory: [],
       purchaseRequests: [],

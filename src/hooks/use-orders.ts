@@ -38,8 +38,9 @@ export function useOrders() {
 
   useEffect(() => {
     if (!bid) return;
+    const channelId = crypto.randomUUID();
     const channel = supabase
-      .channel(`orders:${bid}`)
+      .channel(`orders:${bid}:${channelId}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "orders" }, () => {
         qc.invalidateQueries({ queryKey: ["orders", bid] });
       })
@@ -79,10 +80,13 @@ export function useUpsertOrder() {
   const qc = useQueryClient();
   const bid = business?.id ?? "";
   return useMutation({
-    mutationFn: ({ tableId, items }: { tableId: string; items: OrderItem[] }) => upsertOrder(tableId, items),
+    mutationFn: ({ tableId, items, orderType, parcelFee, orderId }: { tableId: string | null; items: OrderItem[]; orderType?: "dine_in" | "takeaway"; parcelFee?: number; orderId?: string }) => 
+      upsertOrder(tableId, items, orderType, parcelFee, orderId),
     onSuccess: (_id, vars) => {
       qc.invalidateQueries({ queryKey: ["orders", bid] });
-      qc.invalidateQueries({ queryKey: orderKeys.open(bid, vars.tableId) });
+      if (vars.tableId) {
+        qc.invalidateQueries({ queryKey: orderKeys.open(bid, vars.tableId) });
+      }
       qc.invalidateQueries({ queryKey: tableKeys.all(bid) });
     },
   });

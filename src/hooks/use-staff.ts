@@ -25,8 +25,9 @@ export function useMembers() {
   });
   useEffect(() => {
     if (!bid) return;
+    const channelId = crypto.randomUUID();
     const channel = supabase
-      .channel(`staff:${bid}`)
+      .channel(`staff:${bid}:${channelId}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "profiles" }, () => {
         qc.invalidateQueries({ queryKey: staffKeys.all(bid) });
       })

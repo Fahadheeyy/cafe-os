@@ -30,8 +30,9 @@ export function useTables() {
 
   useEffect(() => {
     if (!bid) return;
+    const channelId = crypto.randomUUID();
     const channel = supabase
-      .channel(`tables:${bid}`)
+      .channel(`tables:${bid}:${channelId}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "restaurant_tables" }, () => {
         qc.invalidateQueries({ queryKey: tableKeys.all(bid) });
       })

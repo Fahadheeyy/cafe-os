@@ -14,8 +14,8 @@ export type OrderItem = { productId: string | null; name: string; price: number;
 
 export type Order = {
   id: string;
-  tableId: string;
-  tableName: string;
+  tableId: string | null;
+  tableName: string | null;
   items: OrderItem[];
   total: number;
   status: OrderStatus;
@@ -28,6 +28,8 @@ export type Order = {
   paidAt?: number;
   kitchenStatus: KitchenStatus;
   sentToKitchenAt: number;
+  orderType: "dine_in" | "takeaway";
+  parcelFee: number;
 };
 
 type OrderRow = Database["public"]["Tables"]["orders"]["Row"];
@@ -53,6 +55,8 @@ const fromRow = (o: OrderRow, items: ItemRow[]): Order => ({
   paidAt: o.paid_at ? toEpoch(o.paid_at) : undefined,
   kitchenStatus: o.kitchen_status,
   sentToKitchenAt: toEpoch(o.sent_to_kitchen_at),
+  orderType: o.order_type,
+  parcelFee: Number(o.parcel_fee),
 });
 
 /** Fetch orders + items for the business. Two queries + local join keeps types simple. */
@@ -101,7 +105,7 @@ export async function getOrder(orderId: string): Promise<Order | null> {
 }
 
 /** Atomic save via RPC. Returns the affected order id. */
-export async function upsertOrder(tableId: string, items: Array<Omit<OrderItem, "productId"> & { productId: string | null }>): Promise<string> {
+export async function upsertOrder(tableId: string | null, items: Array<Omit<OrderItem, "productId"> & { productId: string | null }>, orderType: "dine_in" | "takeaway" = "dine_in", parcelFee: number = 0, orderId?: string): Promise<string> {
   const payload = items.map((i) => ({
     product_id: i.productId ?? "",
     name: i.name,
@@ -111,6 +115,9 @@ export async function upsertOrder(tableId: string, items: Array<Omit<OrderItem, 
   const { data, error } = await supabase.rpc("upsert_order_with_items", {
     _table_id: tableId,
     _items: payload as unknown as Database["public"]["Functions"]["upsert_order_with_items"]["Args"]["_items"],
+    _order_type: orderType,
+    _parcel_fee: parcelFee,
+    _order_id: orderId,
   });
   if (error) throw error;
   return data as string;

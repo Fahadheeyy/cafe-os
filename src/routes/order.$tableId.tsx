@@ -19,6 +19,7 @@ import { useAvailableProducts } from "@/hooks/use-products";
 import { useTable, useSetTableStatus } from "@/hooks/use-tables";
 import { useMarkOrderPaid, useOpenOrder, useUpsertOrder } from "@/hooks/use-orders";
 import { getOrder } from "@/lib/services/orders.service";
+import { useStore } from "@/lib/store";
 
 export const Route = createFileRoute("/order/$tableId")({
   ssr: false,
@@ -37,9 +38,13 @@ function OrderScreen() {
   const taxPercent = business?.tax_percent ?? 0;
   const restaurantName = business?.name ?? "CafeOS";
 
-  const table = useTable(tableId);
+  const _table = useTable(tableId);
+  const isTakeaway = tableId === "takeaway";
+  const table = isTakeaway ? { id: "takeaway", name: "Takeaway", status: "available" } : _table;
+  const parcelFeeSetting = useStore((s) => s.settings.parcelFee) ?? 0;
+
   const { data: products = [], isLoading: pLoading } = useAvailableProducts();
-  const { data: openOrder, isLoading: oLoading } = useOpenOrder(tableId);
+  const { data: openOrder, isLoading: oLoading } = useOpenOrder(isTakeaway ? undefined : tableId);
   const upsertMut = useUpsertOrder();
   const markPaidMut = useMarkOrderPaid();
   const setStatusMut = useSetTableStatus();
@@ -51,17 +56,19 @@ function OrderScreen() {
   const [q, setQ] = useState("");
   const [cartOpen, setCartOpen] = useState(false);
   const [method, setMethod] = useState<PaymentMethod>("upi");
+  const [orderType, setOrderType] = useState<"dine_in" | "takeaway">(isTakeaway ? "takeaway" : "dine_in");
 
   // Hydrate cart from open order once loaded; keep local edits after
   useEffect(() => {
     if (cart === null && !oLoading) {
       setCart(openOrder?.items ?? []);
+      if (openOrder?.orderType) setOrderType(openOrder.orderType);
     }
   }, [cart, oLoading, openOrder]);
 
   useEffect(() => {
-    if (!table && !oLoading) navigate({ to: homePath, replace: true });
-  }, [table, oLoading, navigate, homePath]);
+    if (!table && !oLoading && !isTakeaway) navigate({ to: homePath, replace: true });
+  }, [table, oLoading, navigate, homePath, isTakeaway]);
 
   const currentCart = cart ?? [];
   const filtered = useMemo(() => {
@@ -69,8 +76,9 @@ function OrderScreen() {
     return products.filter((p) => p.category === cat && (!query || p.name.toLowerCase().includes(query)));
   }, [products, cat, q]);
 
-  const total = currentCart.reduce((s, i) => s + i.price * i.qty, 0);
+  const itemsTotal = currentCart.reduce((s, i) => s + i.price * i.qty, 0);
   const totalQty = currentCart.reduce((s, i) => s + i.qty, 0);
+  const total = itemsTotal + (orderType === "takeaway" ? parcelFeeSetting : 0);
 
   const add = (id: string) => {
     const p = products.find((x) => x.id === id);
@@ -89,15 +97,16 @@ function OrderScreen() {
   const saveOrder = async () => {
     if (!currentCart.length) return toast.error("Add items first");
     try {
-      await upsertMut.mutateAsync({ tableId, items: currentCart });
+      await upsertMut.mutateAsync({ tableId: isTakeaway ? null : tableId, items: currentCart, orderType, parcelFee: orderType === "takeaway" ? parcelFeeSetting : 0, orderId: openOrder?.id });
       toast.success("Order saved");
+      if (isTakeaway) navigate({ to: homePath });
     } catch (err) { toast.error(err instanceof Error ? err.message : "Could not save order"); }
   };
 
   const printCurrent = async () => {
     if (!currentCart.length) return toast.error("Add items first");
     try {
-      const id = await upsertMut.mutateAsync({ tableId, items: currentCart });
+      const id = await upsertMut.mutateAsync({ tableId: isTakeaway ? null : tableId, items: currentCart, orderType, parcelFee: orderType === "takeaway" ? parcelFeeSetting : 0, orderId: openOrder?.id });
       const fresh = await getOrder(id);
       if (fresh) printBill(fresh, { restaurantName, currency, taxPercent });
     } catch (err) { toast.error(err instanceof Error ? err.message : "Could not print"); }
@@ -106,7 +115,7 @@ function OrderScreen() {
   const payNow = async () => {
     if (!currentCart.length) return toast.error("Add items first");
     try {
-      const id = await upsertMut.mutateAsync({ tableId, items: currentCart });
+      const id = await upsertMut.mutateAsync({ tableId: isTakeaway ? null : tableId, items: currentCart, orderType, parcelFee: orderType === "takeaway" ? parcelFeeSetting : 0, orderId: openOrder?.id });
       await markPaidMut.mutateAsync({ orderId: id, method });
       toast.success(`Paid via ${method.toUpperCase()}`);
       navigate({ to: homePath });
@@ -116,7 +125,7 @@ function OrderScreen() {
   const payAndPrint = async () => {
     if (!currentCart.length) return toast.error("Add items first");
     try {
-      const id = await upsertMut.mutateAsync({ tableId, items: currentCart });
+      const id = await upsertMut.mutateAsync({ tableId: isTakeaway ? null : tableId, items: currentCart, orderType, parcelFee: orderType === "takeaway" ? parcelFeeSetting : 0, orderId: openOrder?.id });
       await markPaidMut.mutateAsync({ orderId: id, method });
       const paid = await getOrder(id);
       if (paid) printBill(paid, { restaurantName, currency, taxPercent });
@@ -128,7 +137,9 @@ function OrderScreen() {
   const clearTable = async () => {
     if (openOrder) return toast.error("Save or pay the order first");
     try {
-      await setStatusMut.mutateAsync({ id: tableId, status: "available" });
+      if (tableId && !isTakeaway) {
+        await setStatusMut.mutateAsync({ id: tableId, status: "available" });
+      }
       navigate({ to: homePath });
     } catch (err) { toast.error(err instanceof Error ? err.message : "Could not free table"); }
   };
@@ -150,6 +161,20 @@ function OrderScreen() {
         <div className="min-w-0 flex-1">
           <p className="text-xs text-muted-foreground uppercase tracking-wider">Order</p>
           <h1 className="text-lg font-semibold truncate leading-tight">{table.name}</h1>
+        </div>
+        <div className="hidden lg:flex items-center gap-1 bg-muted p-1 rounded-xl mr-2">
+          <button 
+            onClick={() => setOrderType("dine_in")} 
+            className={`px-3 py-1.5 text-sm font-medium rounded-lg transition ${orderType === "dine_in" ? "bg-background shadow-sm" : "text-muted-foreground"}`}
+          >
+            Dine In
+          </button>
+          <button 
+            onClick={() => setOrderType("takeaway")} 
+            className={`px-3 py-1.5 text-sm font-medium rounded-lg transition ${orderType === "takeaway" ? "bg-background shadow-sm" : "text-muted-foreground"}`}
+          >
+            Parcel
+          </button>
         </div>
         <button onClick={() => setCartOpen(true)} className="lg:hidden relative rounded-xl border px-3 py-2 flex items-center gap-2 active:scale-95 transition">
           <ShoppingCart className="h-4 w-4" />
@@ -206,7 +231,7 @@ function OrderScreen() {
         </div>
 
         <aside className="hidden lg:flex w-96 border-l bg-card flex-col">
-          <CartPanel busy={busy} cart={currentCart} total={total} currency={currency} method={method} onMethod={setMethod} onDec={dec} onAdd={add} onRemove={remove} onSave={saveOrder} onPay={payNow} onPayPrint={payAndPrint} onPrint={printCurrent} onClear={clearTable} />
+          <CartPanel busy={busy} cart={currentCart} total={total} itemsTotal={itemsTotal} parcelFee={orderType === "takeaway" ? parcelFeeSetting : 0} isTakeaway={isTakeaway} currency={currency} method={method} onMethod={setMethod} onDec={dec} onAdd={add} onRemove={remove} onSave={saveOrder} onPay={payNow} onPayPrint={payAndPrint} onPrint={printCurrent} onClear={clearTable} />
         </aside>
       </div>
 
@@ -217,7 +242,7 @@ function OrderScreen() {
               <p className="font-semibold">Order · {table.name}</p>
               <Button variant="ghost" size="icon" aria-label="Close cart" onClick={() => setCartOpen(false)}><X className="h-4 w-4" /></Button>
             </div>
-            <CartPanel busy={busy} cart={currentCart} total={total} currency={currency} method={method} onMethod={setMethod} onDec={dec} onAdd={add} onRemove={remove} onSave={async () => { await saveOrder(); setCartOpen(false); }} onPay={payNow} onPayPrint={payAndPrint} onPrint={printCurrent} onClear={clearTable} />
+            <CartPanel busy={busy} cart={currentCart} total={total} itemsTotal={itemsTotal} parcelFee={orderType === "takeaway" ? parcelFeeSetting : 0} isTakeaway={isTakeaway} currency={currency} method={method} onMethod={setMethod} onDec={dec} onAdd={add} onRemove={remove} onSave={async () => { await saveOrder(); setCartOpen(false); }} onPay={payNow} onPayPrint={payAndPrint} onPrint={printCurrent} onClear={clearTable} />
           </div>
         </div>
       )}
@@ -226,9 +251,9 @@ function OrderScreen() {
 }
 
 function CartPanel({
-  cart, total, currency, method, onMethod, onDec, onAdd, onRemove, onSave, onPay, onPayPrint, onPrint, onClear, busy,
+  cart, total, itemsTotal, parcelFee, currency, method, onMethod, onDec, onAdd, onRemove, onSave, onPay, onPayPrint, onPrint, onClear, busy, isTakeaway,
 }: {
-  cart: OrderItem[]; total: number; currency: string; busy: boolean;
+  cart: OrderItem[]; total: number; itemsTotal: number; parcelFee: number; currency: string; busy: boolean; isTakeaway: boolean;
   method: PaymentMethod; onMethod: (m: PaymentMethod) => void;
   onDec: (id: string) => void; onAdd: (id: string) => void; onRemove: (id: string) => void;
   onSave: () => void; onPay: () => void; onPayPrint: () => void; onPrint: () => void; onClear: () => void;
@@ -269,9 +294,21 @@ function CartPanel({
         )}
       </div>
       <div className="border-t p-4 space-y-3 bg-card">
-        <div className="flex justify-between items-baseline">
-          <span className="text-sm text-muted-foreground">Grand total</span>
-          <span className="text-2xl font-semibold tracking-tight">{money(total, currency)}</span>
+        <div className="space-y-1.5 border-b pb-3 mb-3">
+          <div className="flex justify-between items-baseline text-sm">
+            <span className="text-muted-foreground">Items Total</span>
+            <span className="font-medium">{money(itemsTotal, currency)}</span>
+          </div>
+          {parcelFee > 0 && (
+            <div className="flex justify-between items-baseline text-sm">
+              <span className="text-muted-foreground">Parcel Fee</span>
+              <span className="font-medium">{money(parcelFee, currency)}</span>
+            </div>
+          )}
+          <div className="flex justify-between items-baseline pt-1.5">
+            <span className="text-sm font-semibold">Grand total</span>
+            <span className="text-2xl font-bold tracking-tight">{money(total, currency)}</span>
+          </div>
         </div>
         <div>
           <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1.5">Payment method</p>

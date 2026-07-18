@@ -19,7 +19,9 @@ const esc = (s: string) =>
 export function printBill(order: Order, settings: PrintSettings) {
   const currency = settings.currency;
   const taxRate = settings.taxPercent || 0;
-  const subtotal = order.total;
+  const itemsTotal = order.items.reduce((s, i) => s + i.price * i.qty, 0);
+  const parcelFee = order.parcelFee || 0;
+  const subtotal = itemsTotal + parcelFee;
   const taxAmt = +(subtotal * taxRate / 100).toFixed(2);
   const grand = +(subtotal + taxAmt).toFixed(2);
   const when = new Date(order.paidAt ?? order.createdAt).toLocaleString();
@@ -68,7 +70,8 @@ export function printBill(order: Order, settings: PrintSettings) {
     <tbody>${rows}</tbody>
   </table>
   <div class="sep"></div>
-  <div class="row"><span>Subtotal</span><span>${esc(money(subtotal, currency))}</span></div>
+  <div class="row"><span>Items Total</span><span>${esc(money(itemsTotal, currency))}</span></div>
+  ${parcelFee ? `<div class="row"><span>Parcel Fee</span><span>${esc(money(parcelFee, currency))}</span></div>` : ""}
   ${taxRate ? `<div class="row"><span>Tax (${taxRate}%)</span><span>${esc(money(taxAmt, currency))}</span></div>` : ""}
   <div class="row total"><span>Total</span><span>${esc(money(grand, currency))}</span></div>
   <div class="row"><span>Payment</span><span>${order.payment === "paid" ? `PAID · ${(order.paymentMethod ?? "cash").toUpperCase()}` : "UNPAID"}</span></div>
