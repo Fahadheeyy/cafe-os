@@ -1,0 +1,94 @@
+/**
+ * Staff dashboard (`/staff`). Minimal table grid with live status +
+ * running bill total; tapping a table opens the POS order screen.
+ */
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { LogOut, Coffee } from "lucide-react";
+import { AuthGuard } from "@/components/auth-guard";
+import { useStore, formatMoney, type TableStatus } from "@/lib/store";
+import { useAuth, useCurrentUser } from "@/hooks/use-auth";
+import { Button } from "@/components/ui/button";
+
+export const Route = createFileRoute("/staff")({
+  ssr: false,
+  component: () => (
+    <AuthGuard role="staff">
+      <StaffHome />
+    </AuthGuard>
+  ),
+});
+
+const statusStyle: Record<TableStatus, { dot: string; label: string; ring: string; bg: string }> = {
+  available: { dot: "bg-emerald-500", label: "Available", ring: "ring-emerald-500/30", bg: "bg-emerald-50/50" },
+  occupied: { dot: "bg-amber-500", label: "Occupied", ring: "ring-amber-500/30", bg: "bg-amber-50/50" },
+  bill_ready: { dot: "bg-red-500", label: "Bill Ready", ring: "ring-red-500/30", bg: "bg-red-50/50" },
+};
+
+function StaffHome() {
+  const tables = useStore((s) => s.tables);
+  const orders = useStore((s) => s.orders);
+  const settings = useStore((s) => s.settings);
+  const user = useCurrentUser();
+  const { signOut, business } = useAuth();
+  const navigate = useNavigate();
+  const displayName = business?.name ?? settings.restaurantName;
+
+  const billFor = (tableId: string) => {
+    const o = orders.find((x) => x.tableId === tableId && x.status === "pending" && x.payment === "unpaid");
+    return o?.total ?? 0;
+  };
+
+  const handleLogout = async () => {
+    await signOut();
+    navigate({ to: "/login", replace: true });
+  };
+
+  return (
+    <div className="min-h-dvh bg-background">
+      <header className="h-16 border-b bg-background/80 backdrop-blur sticky top-0 z-30 flex items-center justify-between px-4 sm:px-6">
+        <div className="flex items-center gap-2">
+          <div className="grid h-9 w-9 place-items-center rounded-xl bg-primary text-primary-foreground">
+            <Coffee className="h-4 w-4" />
+          </div>
+          <div>
+            <p className="text-sm font-semibold">{displayName}</p>
+            <p className="text-[11px] text-muted-foreground -mt-0.5">Hi, {user?.name}</p>
+          </div>
+        </div>
+        <Button variant="ghost" size="sm" onClick={handleLogout}>
+          <LogOut className="h-4 w-4 mr-1" /> Sign out
+        </Button>
+      </header>
+
+      <main className="p-4 sm:p-6 max-w-6xl mx-auto">
+        <div className="flex items-baseline justify-between mb-4">
+          <h1 className="text-xl font-semibold tracking-tight">Tables</h1>
+          <p className="text-xs text-muted-foreground">{tables.filter((t) => t.status === "available").length} of {tables.length} available</p>
+        </div>
+        <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+          {tables.map((t) => {
+            const s = statusStyle[t.status];
+            const bill = billFor(t.id);
+            return (
+              <Link
+                key={t.id}
+                to="/order/$tableId"
+                params={{ tableId: t.id }}
+                className={`p-5 rounded-2xl border shadow-sm ring-1 ${s.ring} ${s.bg} active:scale-[0.98] transition text-left`}
+              >
+                <div className="flex items-center gap-1.5">
+                  <span className={`h-2 w-2 rounded-full ${s.dot}`} />
+                  <span className="text-[11px] text-muted-foreground uppercase tracking-wider">{s.label}</span>
+                </div>
+                <p className="mt-3 text-xl font-semibold tracking-tight">{t.name}</p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  {t.status === "available" ? "Tap to start" : formatMoney(bill, settings.currency)}
+                </p>
+              </Link>
+            );
+          })}
+        </div>
+      </main>
+    </div>
+  );
+}
