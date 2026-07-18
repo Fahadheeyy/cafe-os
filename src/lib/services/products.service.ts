@@ -41,13 +41,14 @@ export async function listProducts(): Promise<Product[]> {
 
 export type ProductInput = Omit<Product, "id">;
 
-export async function createProduct(input: ProductInput): Promise<Product> {
+export async function createProduct(businessId: string, input: ProductInput): Promise<Product> {
   const name = input.name.trim();
   if (!name) throw new Error("Product name is required");
   if (!Number.isFinite(input.price) || input.price < 0) throw new Error("Price must be non-negative");
   const { data, error } = await supabase
     .from("products")
     .insert({
+      business_id: businessId,
       name,
       category: input.category,
       price: input.price,

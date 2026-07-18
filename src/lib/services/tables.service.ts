@@ -17,12 +17,12 @@ export async function listTables(): Promise<RestaurantTable[]> {
   return (data ?? []).map(fromRow);
 }
 
-export async function createTable(name: string): Promise<RestaurantTable> {
+export async function createTable(businessId: string, name: string): Promise<RestaurantTable> {
   const n = name.trim();
   if (!n) throw new Error("Table name is required");
   const { data, error } = await supabase
     .from("restaurant_tables")
-    .insert({ name: n } as Database["public"]["Tables"]["restaurant_tables"]["Insert"])
+    .insert({ business_id: businessId, name: n } as Database["public"]["Tables"]["restaurant_tables"]["Insert"])
     .select("*")
     .single();
   if (error) throw error;

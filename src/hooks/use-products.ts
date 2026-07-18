@@ -50,9 +50,10 @@ export function useAvailableProducts() {
 export function useCreateProduct() {
   const { business } = useAuth();
   const qc = useQueryClient();
+  const bid = business?.id ?? "";
   return useMutation({
-    mutationFn: (input: ProductInput) => createProduct(input),
-    onSuccess: () => qc.invalidateQueries({ queryKey: productKeys.all(business?.id ?? "") }),
+    mutationFn: (input: ProductInput) => createProduct(bid, input),
+    onSuccess: () => qc.invalidateQueries({ queryKey: productKeys.all(bid) }),
   });
 }
 

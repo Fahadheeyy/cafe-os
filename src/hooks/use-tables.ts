@@ -51,9 +51,10 @@ export function useTable(id: string | undefined) {
 export function useCreateTable() {
   const { business } = useAuth();
   const qc = useQueryClient();
+  const bid = business?.id ?? "";
   return useMutation({
-    mutationFn: (name: string) => createTable(name),
-    onSuccess: () => qc.invalidateQueries({ queryKey: tableKeys.all(business?.id ?? "") }),
+    mutationFn: (name: string) => createTable(bid, name),
+    onSuccess: () => qc.invalidateQueries({ queryKey: tableKeys.all(bid) }),
   });
 }
 

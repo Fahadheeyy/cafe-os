@@ -61,10 +61,11 @@ export async function listStockItems(): Promise<StockItem[]> {
   return (data ?? []).map(stockFromRow);
 }
 
-export async function createStockItem(v: Omit<StockItem, "id" | "createdAt" | "updatedAt">) {
+export async function createStockItem(businessId: string, v: Omit<StockItem, "id" | "createdAt" | "updatedAt">) {
   const name = v.name.trim();
   if (!name) throw new Error("Stock item name is required");
   const { error } = await supabase.from("stock_items").insert({
+    business_id: businessId,
     name, category: v.category, unit: v.unit,
     current_balance: v.currentBalance, minimum_balance: v.minimumBalance,
   } as Database["public"]["Tables"]["stock_items"]["Insert"]);
@@ -254,11 +255,12 @@ export async function listExpenses(): Promise<Expense[]> {
   }));
 }
 
-export async function createExpense(v: { title: string; category: ExpenseCategory; amount: number; notes?: string; expenseDate: number }) {
+export async function createExpense(businessId: string, v: { title: string; category: ExpenseCategory; amount: number; notes?: string; expenseDate: number }) {
   const title = v.title.trim();
   if (!title) throw new Error("Expense title is required");
   if (!Number.isFinite(v.amount) || v.amount < 0) throw new Error("Amount must be >= 0");
   const { error } = await supabase.from("expenses").insert({
+    business_id: businessId,
     title, category: v.category, amount: v.amount,
     notes: v.notes ?? null,
     expense_date: new Date(v.expenseDate).toISOString().slice(0, 10),
@@ -322,9 +324,9 @@ export async function listSuppliers(): Promise<string[]> {
   return (data ?? []).map((r) => r.name);
 }
 
-export async function addSupplier(name: string) {
+export async function createSupplier(businessId: string, name: string) {
   const n = name.trim();
   if (!n) return;
-  const { error } = await supabase.from("suppliers").insert({ name: n } as Database["public"]["Tables"]["suppliers"]["Insert"]);
+  const { error } = await supabase.from("suppliers").insert({ business_id: businessId, name: n } as Database["public"]["Tables"]["suppliers"]["Insert"]);
   if (error && !String(error.message).match(/duplicate|unique/i)) throw error;
 }

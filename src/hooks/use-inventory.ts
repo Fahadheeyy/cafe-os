@@ -54,9 +54,10 @@ export function useStockItems() {
 export function useCreateStockItem() {
   const { business } = useAuth();
   const qc = useQueryClient();
+  const bid = business?.id ?? "";
   return useMutation({
-    mutationFn: inv.createStockItem,
-    onSuccess: () => qc.invalidateQueries({ queryKey: invKeys.stock(business?.id ?? "") }),
+    mutationFn: (v: Omit<inv.StockItem, "id" | "createdAt" | "updatedAt">) => inv.createStockItem(bid, v),
+    onSuccess: () => qc.invalidateQueries({ queryKey: invKeys.stock(bid) }),
   });
 }
 
@@ -192,9 +193,20 @@ export function useExpenses() {
 export function useCreateExpense() {
   const { business } = useAuth();
   const qc = useQueryClient();
+  const bid = business?.id ?? "";
   return useMutation({
-    mutationFn: inv.createExpense,
-    onSuccess: () => qc.invalidateQueries({ queryKey: invKeys.expenses(business?.id ?? "") }),
+    mutationFn: (v: Parameters<typeof inv.createExpense>[1]) => inv.createExpense(bid, v),
+    onSuccess: () => qc.invalidateQueries({ queryKey: invKeys.expenses(bid) }),
+  });
+}
+
+export function useAddSupplier() {
+  const { business } = useAuth();
+  const qc = useQueryClient();
+  const bid = business?.id ?? "";
+  return useMutation({
+    mutationFn: (name: string) => inv.createSupplier(bid, name),
+    onSuccess: () => qc.invalidateQueries({ queryKey: invKeys.suppliers(bid) }),
   });
 }
 
