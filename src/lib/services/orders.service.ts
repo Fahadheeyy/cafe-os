@@ -10,7 +10,7 @@ export type PaymentStatus = Database["public"]["Enums"]["payment_status"];
 export type PaymentMethod = Database["public"]["Enums"]["payment_method"];
 export type KitchenStatus = Database["public"]["Enums"]["kitchen_status"];
 
-export type OrderItem = { productId: string | null; name: string; price: number; qty: number };
+export type OrderItem = { productId: string | null; name: string; price: number; qty: number; notes?: string };
 
 export type KOT = {
   id: string;
@@ -39,6 +39,7 @@ export type Order = {
   sentToKitchenAt: number;
   orderType: "dine_in" | "takeaway";
   parcelFee: number;
+  notes?: string | null;
 };
 
 type OrderRow = Database["public"]["Tables"]["orders"]["Row"];
@@ -51,8 +52,9 @@ const fromRow = (o: OrderRow, items: ItemRow[], kots: KotRow[]): Order => {
   const orderItems = items.filter((i) => i.order_id === o.id);
   const groupedItems = orderItems.reduce((acc, i) => {
     const key = i.product_id ?? i.name;
-    if (!acc[key]) acc[key] = { productId: i.product_id, name: i.name, price: Number(i.price), qty: 0 };
+    if (!acc[key]) acc[key] = { productId: i.product_id, name: i.name, price: Number(i.price), qty: 0, notes: i.notes ?? undefined };
     acc[key].qty += i.qty;
+    if (i.notes) acc[key].notes = i.notes;
     return acc;
   }, {} as Record<string, OrderItem>);
 
@@ -61,7 +63,7 @@ const fromRow = (o: OrderRow, items: ItemRow[], kots: KotRow[]): Order => {
     .map((k) => {
       const kotItems = orderItems
         .filter((i) => i.kot_id === k.id)
-        .map((i) => ({ productId: i.product_id, name: i.name, price: Number(i.price), qty: i.qty }));
+        .map((i) => ({ productId: i.product_id, name: i.name, price: Number(i.price), qty: i.qty, notes: i.notes ?? undefined }));
       return {
         id: k.id,
         orderId: k.order_id!,
@@ -91,6 +93,7 @@ const fromRow = (o: OrderRow, items: ItemRow[], kots: KotRow[]): Order => {
     sentToKitchenAt: toEpoch(o.sent_to_kitchen_at),
     orderType: o.order_type,
     parcelFee: Number(o.parcel_fee),
+    notes: o.notes ?? undefined,
   };
 };
 
@@ -152,22 +155,63 @@ export async function getOrder(orderId: string): Promise<Order | null> {
 }
 
 /** Atomic save via RPC. Returns the affected order id. */
-export async function upsertOrder(tableId: string | null, items: Array<Omit<OrderItem, "productId"> & { productId: string | null }>, orderType: "dine_in" | "takeaway" = "dine_in", parcelFee: number = 0, orderId?: string): Promise<string> {
+export async function upsertOrder(
+  tableId: string | null,
+  items: Array<Omit<OrderItem, "productId"> & { productId: string | null; notes?: string }>,
+  orderType: "dine_in" | "takeaway" = "dine_in",
+  parcelFee: number = 0,
+  orderId?: string,
+  notes?: string
+): Promise<string> {
   const payload = items.map((i) => ({
     product_id: i.productId ?? "",
     name: i.name,
     price: i.price,
     qty: i.qty,
+    notes: i.notes ?? "",
   }));
+
+  // 1. Call RPC with standard parameters to ensure compatibility
   const { data, error } = await supabase.rpc("upsert_order_with_items", {
     _table_id: tableId,
     _items: payload as unknown as Database["public"]["Functions"]["upsert_order_with_items"]["Args"]["_items"],
     _order_type: orderType,
     _parcel_fee: parcelFee,
-    _order_id: orderId,
+    _order_id: orderId || null,
   });
+
   if (error) throw error;
-  return data as string;
+  const affectedOrderId = data as string;
+
+  // 2. Persist order-level and item-level notes safely
+  if (affectedOrderId) {
+    try {
+      if (notes !== undefined) {
+        await supabase.from("orders").update({ notes: notes || null }).eq("id", affectedOrderId);
+      }
+      for (const item of items) {
+        if (item.notes) {
+          if (item.productId) {
+            await supabase
+              .from("order_items")
+              .update({ notes: item.notes })
+              .eq("order_id", affectedOrderId)
+              .eq("product_id", item.productId);
+          } else {
+            await supabase
+              .from("order_items")
+              .update({ notes: item.notes })
+              .eq("order_id", affectedOrderId)
+              .eq("name", item.name);
+          }
+        }
+      }
+    } catch (noteErr) {
+      console.warn("Could not save notes to orders/order_items tables:", noteErr);
+    }
+  }
+
+  return affectedOrderId;
 }
 
 export async function markOrderPaid(orderId: string, method: PaymentMethod): Promise<void> {

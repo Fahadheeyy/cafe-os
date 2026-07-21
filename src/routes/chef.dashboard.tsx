@@ -3,7 +3,8 @@
  * queue backed by Supabase Realtime.
  */
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Package, Inbox, Trash2, ArrowRight, ChefHat, CheckCircle2, Clock, Utensils, Loader2 } from "lucide-react";
+import { useEffect, useMemo, useRef } from "react";
+import { Package, Inbox, Trash2, ArrowRight, ChefHat, CheckCircle2, Clock, Utensils, Loader2, NotebookPen, FileText } from "lucide-react";
 import { toast } from "sonner";
 import { AuthGuard } from "@/components/auth-guard";
 import { ChefShell } from "@/components/chef-shell";
@@ -13,6 +14,7 @@ import { money } from "@/lib/format";
 import { useAuth } from "@/hooks/use-auth";
 import { useOrders, useSetKitchenStatus } from "@/hooks/use-orders";
 import type { KitchenStatus } from "@/lib/services/orders.service";
+import { playNotificationSound } from "@/lib/sound";
 
 export const Route = createFileRoute("/chef/dashboard")({
   ssr: false,
@@ -38,24 +40,41 @@ function ChefDashboard() {
   const { data: orders = [], isLoading, isError, error, refetch } = useOrders();
   const setKitchen = useSetKitchenStatus();
 
-  const activeOrders = orders.filter((o) => o.status === "pending" && o.items.length > 0);
-  
-  const allKots = activeOrders.flatMap((o) => 
-    o.kots.map((k) => ({
-      ...k,
-      tableName: o.tableName,
-      staffName: o.staffName,
-      kotTotal: k.items.reduce((sum, i) => sum + i.price * i.qty, 0)
-    }))
-  ).filter((k) => k.items.length > 0 && k.kitchenStatus !== "served");
+  const allKots = useMemo(() => {
+    const activeOrders = orders.filter((o) => o.status === "pending" && o.items.length > 0);
+    return activeOrders.flatMap((o) =>
+      o.kots.map((k) => ({
+        ...k,
+        tableName: o.tableName,
+        staffName: o.staffName,
+        orderNotes: o.notes,
+        kotTotal: k.items.reduce((sum, i) => sum + i.price * i.qty, 0),
+      }))
+    ).filter((k) => k.items.length > 0 && k.kitchenStatus !== "served");
+  }, [orders]);
 
-  const queue = allKots
-    .filter((k) => k.kitchenStatus === "queued" || k.kitchenStatus === "preparing")
-    .sort((a, b) => a.createdAt - b.createdAt);
-    
-  const ready = allKots
-    .filter((k) => k.kitchenStatus === "ready")
-    .sort((a, b) => a.createdAt - b.createdAt);
+  const queue = useMemo(() => {
+    return allKots
+      .filter((k) => k.kitchenStatus === "queued" || k.kitchenStatus === "preparing")
+      .sort((a, b) => a.createdAt - b.createdAt);
+  }, [allKots]);
+
+  const ready = useMemo(() => {
+    return allKots
+      .filter((k) => k.kitchenStatus === "ready")
+      .sort((a, b) => a.createdAt - b.createdAt);
+  }, [allKots]);
+
+  // Play audio chime and toast notification when new orders arrive in queue
+  const prevCountRef = useRef<number | null>(null);
+  useEffect(() => {
+    const queuedCount = queue.filter((k) => k.kitchenStatus === "queued").length;
+    if (prevCountRef.current !== null && queuedCount > prevCountRef.current) {
+      playNotificationSound("new_order");
+      toast.info("🔔 New order received in kitchen!", { duration: 4000 });
+    }
+    prevCountRef.current = queuedCount;
+  }, [queue]);
 
   const kpis: Array<{ label: string; value: number; tone?: "success" | "warning" | "danger" | "info" }> = [
     { label: "In queue", value: queue.filter((k) => k.kitchenStatus === "queued").length, tone: "info" },
@@ -108,10 +127,29 @@ function ChefDashboard() {
                     </div>
                     <StatusPill tone={isPrep ? "warning" : "info"}>{isPrep ? "Preparing" : "Queued"}</StatusPill>
                   </div>
+
+                  {/* Order-level Note */}
+                  {k.orderNotes && (
+                    <div className="mb-2 p-2 rounded-lg bg-amber-100/80 border border-amber-300 text-amber-950 text-xs flex items-start gap-1.5">
+                      <NotebookPen className="h-3.5 w-3.5 text-amber-700 shrink-0 mt-0.5" />
+                      <div>
+                        <span className="font-semibold">Kitchen Note: </span>
+                        <span>{k.orderNotes}</span>
+                      </div>
+                    </div>
+                  )}
+
                   <ul className="text-sm space-y-1 border-t pt-2 mb-3">
-                    {k.items.map((i, idx) => (
-                      <li key={i.productId ?? idx} className="flex justify-between gap-2">
-                        <span className="truncate"><span className="font-semibold text-primary">×{i.qty}</span> {i.name}</span>
+                    {k.items.map((i, itemIdx) => (
+                      <li key={i.productId ?? itemIdx} className="space-y-0.5">
+                        <div className="flex justify-between gap-2">
+                          <span className="font-medium"><span className="font-bold text-primary">×{i.qty}</span> {i.name}</span>
+                        </div>
+                        {i.notes && (
+                          <p className="text-[11px] text-amber-800 font-medium italic flex items-center gap-1 pl-4">
+                            <FileText className="h-3 w-3 shrink-0 text-amber-600" /> Note: {i.notes}
+                          </p>
+                        )}
                       </li>
                     ))}
                   </ul>
@@ -119,7 +157,7 @@ function ChefDashboard() {
                     {k.kitchenStatus === "queued" ? (
                       <Button size="sm" className="flex-1 min-h-11" onClick={() => advance(k.id, "preparing")}>Start preparing</Button>
                     ) : (
-                      <Button size="sm" className="flex-1 min-h-11 bg-emerald-600 hover:bg-emerald-700" onClick={() => advance(k.id, "ready")}>
+                      <Button size="sm" className="flex-1 min-h-11 bg-emerald-600 hover:bg-emerald-700 text-white" onClick={() => advance(k.id, "ready")}>
                         <CheckCircle2 className="h-4 w-4 mr-1" /> Mark ready
                       </Button>
                     )}

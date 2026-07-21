@@ -216,6 +216,7 @@ export type Database = {
           id: string
           kot_id: string | null
           name: string
+          notes: string | null
           order_id: string
           price: number
           product_id: string | null
@@ -227,6 +228,7 @@ export type Database = {
           id?: string
           kot_id?: string | null
           name: string
+          notes?: string | null
           order_id: string
           price: number
           product_id?: string | null
@@ -238,6 +240,7 @@ export type Database = {
           id?: string
           kot_id?: string | null
           name?: string
+          notes?: string | null
           order_id?: string
           price?: number
           product_id?: string | null
@@ -280,6 +283,7 @@ export type Database = {
           created_at: string
           id: string
           kitchen_status: Database["public"]["Enums"]["kitchen_status"]
+          notes: string | null
           order_type: Database["public"]["Enums"]["order_type"]
           paid_at: string | null
           parcel_fee: number
@@ -299,6 +303,7 @@ export type Database = {
           created_at?: string
           id?: string
           kitchen_status?: Database["public"]["Enums"]["kitchen_status"]
+          notes?: string | null
           order_type?: Database["public"]["Enums"]["order_type"]
           paid_at?: string | null
           parcel_fee?: number
@@ -318,6 +323,7 @@ export type Database = {
           created_at?: string
           id?: string
           kitchen_status?: Database["public"]["Enums"]["kitchen_status"]
+          notes?: string | null
           order_type?: Database["public"]["Enums"]["order_type"]
           paid_at?: string | null
           parcel_fee?: number
@@ -897,6 +903,7 @@ export type Database = {
         | {
             Args: {
               _items: Json
+              _notes?: string
               _order_id?: string
               _order_type?: Database["public"]["Enums"]["order_type"]
               _parcel_fee?: number

@@ -3,7 +3,9 @@
  * running bill total; tapping a table opens the POS order screen.
  */
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useEffect, useMemo, useRef } from "react";
 import { LogOut, Coffee } from "lucide-react";
+import { toast } from "sonner";
 import { AuthGuard } from "@/components/auth-guard";
 import { useStore, type TableStatus } from "@/lib/store";
 import { money as formatMoney } from "@/lib/format";
@@ -11,6 +13,7 @@ import { useAuth, useCurrentUser } from "@/hooks/use-auth";
 import { useTables } from "@/hooks/use-tables";
 import { useOrders } from "@/hooks/use-orders";
 import { Button } from "@/components/ui/button";
+import { playNotificationSound } from "@/lib/sound";
 
 export const Route = createFileRoute("/staff")({
   ssr: false,
@@ -35,6 +38,26 @@ function StaffHome() {
   const { signOut, business } = useAuth();
   const navigate = useNavigate();
   const displayName = business?.name ?? settings.restaurantName;
+
+  // Track ready KOTs to play audio notification to staff
+  const readyKots = useMemo(() => {
+    return orders.flatMap((o) =>
+      o.kots
+        .filter((k) => k.kitchenStatus === "ready")
+        .map((k) => ({ ...k, tableName: o.tableName ?? "Table" }))
+    );
+  }, [orders]);
+
+  const prevReadyCountRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (prevReadyCountRef.current !== null && readyKots.length > prevReadyCountRef.current) {
+      playNotificationSound("food_ready");
+      const latestReady = readyKots[readyKots.length - 1];
+      toast.success(`🍳 Food is ready for ${latestReady?.tableName ?? "a table"}!`, { duration: 5000 });
+    }
+    prevReadyCountRef.current = readyKots.length;
+  }, [readyKots]);
 
   const billFor = (tableId: string) => {
     const o = orders.find((x) => x.tableId === tableId && x.status === "pending" && x.payment === "unpaid");

@@ -83,8 +83,8 @@ export function useUpsertOrder() {
   const qc = useQueryClient();
   const bid = business?.id ?? "";
   return useMutation({
-    mutationFn: ({ tableId, items, orderType, parcelFee, orderId }: { tableId: string | null; items: OrderItem[]; orderType?: "dine_in" | "takeaway"; parcelFee?: number; orderId?: string }) => 
-      upsertOrder(tableId, items, orderType, parcelFee, orderId),
+    mutationFn: ({ tableId, items, orderType, parcelFee, orderId, notes }: { tableId: string | null; items: OrderItem[]; orderType?: "dine_in" | "takeaway"; parcelFee?: number; orderId?: string; notes?: string }) => 
+      upsertOrder(tableId, items, orderType, parcelFee, orderId, notes),
     onSuccess: (_id, vars) => {
       qc.invalidateQueries({ queryKey: ["orders", bid] });
       if (vars.tableId) {
