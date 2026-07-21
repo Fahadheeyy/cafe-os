@@ -171,17 +171,33 @@ export async function upsertOrder(
     notes: i.notes ?? "",
   }));
 
-  // 1. Call RPC with standard parameters to ensure compatibility
-  const { data, error } = await supabase.rpc("upsert_order_with_items", {
+  let affectedOrderId: string | null = null;
+
+  // 1. Try 6-parameter RPC call first
+  const { data: d1, error: e1 } = await supabase.rpc("upsert_order_with_items", {
     _table_id: tableId,
     _items: payload as unknown as Database["public"]["Functions"]["upsert_order_with_items"]["Args"]["_items"],
     _order_type: orderType,
     _parcel_fee: parcelFee,
     _order_id: orderId || null,
-  });
+    _notes: notes || null,
+  } as any);
 
-  if (error) throw error;
-  const affectedOrderId = data as string;
+  if (!e1 && d1) {
+    affectedOrderId = d1 as string;
+  } else {
+    // Fallback to 5-parameter RPC call if function ambiguity or parameter mismatch occurs
+    const { data: d2, error: e2 } = await supabase.rpc("upsert_order_with_items", {
+      _table_id: tableId,
+      _items: payload as unknown as Database["public"]["Functions"]["upsert_order_with_items"]["Args"]["_items"],
+      _order_type: orderType,
+      _parcel_fee: parcelFee,
+      _order_id: orderId || null,
+    } as any);
+
+    if (e2) throw e2;
+    affectedOrderId = d2 as string;
+  }
 
   // 2. Persist order-level and item-level notes safely
   if (affectedOrderId) {

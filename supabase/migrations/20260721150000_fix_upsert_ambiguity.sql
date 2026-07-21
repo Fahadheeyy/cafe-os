@@ -1,7 +1,4 @@
--- Migration to add order and item notes, and update upsert_order_with_items RPC
-ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS notes text;
-ALTER TABLE public.order_items ADD COLUMN IF NOT EXISTS notes text;
-
+-- Fix PL/pgSQL function overloading ambiguity by dropping older signature
 DROP FUNCTION IF EXISTS public.upsert_order_with_items(uuid, jsonb, public.order_type, numeric, uuid);
 DROP FUNCTION IF EXISTS public.upsert_order_with_items(uuid, jsonb, public.order_type, numeric, uuid, text);
 
