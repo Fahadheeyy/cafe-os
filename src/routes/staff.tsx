@@ -5,7 +5,8 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { LogOut, Coffee } from "lucide-react";
 import { AuthGuard } from "@/components/auth-guard";
-import { useStore, formatMoney, type TableStatus } from "@/lib/store";
+import { useStore, type TableStatus } from "@/lib/store";
+import { money as formatMoney } from "@/lib/format";
 import { useAuth, useCurrentUser } from "@/hooks/use-auth";
 import { useTables } from "@/hooks/use-tables";
 import { useOrders } from "@/hooks/use-orders";
@@ -96,7 +97,7 @@ function StaffHome() {
                 </div>
                 <p className="mt-3 text-xl font-semibold tracking-tight">{t.name}</p>
                 <p className="text-sm text-muted-foreground mt-1">
-                  {t.status === "available" ? "Tap to start" : formatMoney(bill, settings.currency)}
+                  {t.status === "available" ? "Tap to start" : formatMoney(bill, business?.currency ?? "₹")}
                 </p>
               </Link>
             );

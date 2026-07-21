@@ -10,7 +10,8 @@ import { AuthGuard } from "@/components/auth-guard";
 import { ManagerShell } from "@/components/manager-shell";
 import { FloorOps } from "@/components/floor-ops";
 import { StatCard } from "@/components/ui-kit";
-import { useStore, formatMoney } from "@/lib/store";
+import { useAuth } from "@/hooks/use-auth";
+import { money as formatMoney } from "@/lib/format";
 import { useOrders } from "@/hooks/use-orders";
 import { todayRange } from "@/lib/date-range";
 
@@ -27,7 +28,8 @@ export const Route = createFileRoute("/manager/dashboard")({
 
 function ManagerDashboard() {
   const { data: orders = [] } = useOrders();
-  const settings = useStore((s) => s.settings);
+  const { business } = useAuth();
+  const currency = business?.currency ?? "₹";
 
   const kpis = useMemo(() => {
     const t0 = todayRange().start;
@@ -40,10 +42,10 @@ function ManagerDashboard() {
   return (
     <div className="space-y-6">
       <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
-        <StatCard label="Today's revenue" value={formatMoney(kpis.total, settings.currency)} icon={TrendingUp} tone="success" />
+        <StatCard label="Today's revenue" value={formatMoney(kpis.total, currency)} icon={TrendingUp} tone="success" />
         <StatCard label="Bills settled" value={kpis.count} icon={Receipt} />
-        <StatCard label="UPI collected" value={formatMoney(kpis.upi, settings.currency)} icon={Wallet} tone="info" />
-        <StatCard label="Cash collected" value={formatMoney(kpis.cash, settings.currency)} icon={Banknote} tone="warning" />
+        <StatCard label="UPI collected" value={formatMoney(kpis.upi, currency)} icon={Wallet} tone="info" />
+        <StatCard label="Cash collected" value={formatMoney(kpis.cash, currency)} icon={Banknote} tone="warning" />
       </div>
       <FloorOps manageTablesHref="/manager/dashboard" />
     </div>

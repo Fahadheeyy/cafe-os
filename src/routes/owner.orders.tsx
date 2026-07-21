@@ -54,7 +54,7 @@ function OrdersPage() {
         if (filter === "cancelled") return o.status === "cancelled";
         return true;
       })
-      .filter((o) => !q || o.tableName.toLowerCase().includes(q.toLowerCase()) || o.staffName.toLowerCase().includes(q.toLowerCase()));
+      .filter((o) => !q || (o.tableName ?? "").toLowerCase().includes(q.toLowerCase()) || o.staffName.toLowerCase().includes(q.toLowerCase()));
   }, [orders, filter, q]);
 
   const handlePaid = async (orderId: string, method: "upi" | "cash") => {

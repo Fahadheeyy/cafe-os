@@ -39,7 +39,7 @@ export function printBill(order: Order, settings: PrintSettings) {
     .join("");
 
   const html = `<!doctype html><html><head><meta charset="utf-8" />
-<title>Bill · ${esc(order.tableName)}</title>
+<title>Bill · ${esc(order.tableName ?? "Takeaway")}</title>
 <style>
   * { box-sizing: border-box; }
   body { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; color: #111; margin: 0; padding: 16px; }
@@ -62,7 +62,7 @@ export function printBill(order: Order, settings: PrintSettings) {
 </style></head><body>
 <div class="receipt">
   <h1>${esc(settings.restaurantName)}</h1>
-  <p class="muted">${esc(order.tableName)} · ${esc(when)}</p>
+  <p class="muted">${esc(order.tableName ?? "Takeaway")} · ${esc(when)}</p>
   <p class="muted">Server: ${esc(order.staffName)}</p>
   <div class="sep"></div>
   <table>

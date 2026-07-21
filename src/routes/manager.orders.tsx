@@ -49,7 +49,7 @@ function ManagerOrders() {
         if (filter === "unpaid") return o.status === "pending" && o.payment === "unpaid";
         return o.payment === "paid";
       })
-      .filter((o) => !q || o.tableName.toLowerCase().includes(q.toLowerCase()) || o.staffName.toLowerCase().includes(q.toLowerCase()));
+      .filter((o) => !q || (o.tableName ?? "").toLowerCase().includes(q.toLowerCase()) || o.staffName.toLowerCase().includes(q.toLowerCase()));
   }, [orders, filter, q]);
 
   const settle = async (id: string, method: PaymentMethod) => {

@@ -241,7 +241,7 @@ function Dashboard() {
               <div key={o.id} className="flex items-center justify-between p-3 rounded-xl border hover:bg-accent/40 transition">
                 <div className="flex items-center gap-3 min-w-0">
                   <div className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-accent text-accent-foreground text-xs font-semibold">
-                    {o.tableName.replace(/[^0-9]/g, "") || o.tableName[0]}
+                    {(o.tableName ?? "Takeaway").replace(/[^0-9]/g, "") || (o.tableName ?? "T")[0]}
                   </div>
                   <div className="min-w-0">
                     <p className="text-sm font-medium truncate">{o.tableName}</p>
