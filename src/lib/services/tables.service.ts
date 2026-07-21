@@ -8,13 +8,16 @@ export type RestaurantTable = { id: string; name: string; status: TableStatus };
 type Row = Database["public"]["Tables"]["restaurant_tables"]["Row"];
 const fromRow = (r: Row): RestaurantTable => ({ id: r.id, name: r.name, status: r.status });
 
+/** Natural-sort comparator: "Table 2" < "Table 10" < "Table 20". */
+const naturalSort = (a: RestaurantTable, b: RestaurantTable) =>
+  a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: "base" });
+
 export async function listTables(): Promise<RestaurantTable[]> {
   const { data, error } = await supabase
     .from("restaurant_tables")
-    .select("*")
-    .order("created_at", { ascending: true });
+    .select("*");
   if (error) throw error;
-  return (data ?? []).map(fromRow);
+  return (data ?? []).map(fromRow).sort(naturalSort);
 }
 
 export async function createTable(businessId: string, name: string): Promise<RestaurantTable> {
