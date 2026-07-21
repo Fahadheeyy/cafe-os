@@ -41,7 +41,7 @@ function OrderScreen() {
   const _table = useTable(tableId);
   const isTakeaway = tableId === "takeaway";
   const table = isTakeaway ? { id: "takeaway", name: "Takeaway", status: "available" } : _table;
-  const parcelFeeSetting = useStore((s) => s.settings.parcelFee) ?? 0;
+  const parcelFeeSetting = business?.parcel_fee ?? 0;
 
   const { data: products = [], isLoading: pLoading } = useAvailableProducts();
   const { data: openOrder, isLoading: oLoading } = useOpenOrder(isTakeaway ? undefined : tableId);

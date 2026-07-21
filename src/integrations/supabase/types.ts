@@ -12,6 +12,31 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.5"
   }
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
   public: {
     Tables: {
       businesses: {
@@ -101,6 +126,48 @@ export type Database = {
           },
         ]
       }
+      kots: {
+        Row: {
+          business_id: string | null
+          created_at: string | null
+          id: string
+          kitchen_status: Database["public"]["Enums"]["kitchen_status"] | null
+          order_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          business_id?: string | null
+          created_at?: string | null
+          id?: string
+          kitchen_status?: Database["public"]["Enums"]["kitchen_status"] | null
+          order_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          business_id?: string | null
+          created_at?: string | null
+          id?: string
+          kitchen_status?: Database["public"]["Enums"]["kitchen_status"] | null
+          order_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "kots_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "businesses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "kots_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notifications: {
         Row: {
           body: string | null
@@ -147,6 +214,7 @@ export type Database = {
           business_id: string
           created_at: string
           id: string
+          kot_id: string | null
           name: string
           order_id: string
           price: number
@@ -157,6 +225,7 @@ export type Database = {
           business_id: string
           created_at?: string
           id?: string
+          kot_id?: string | null
           name: string
           order_id: string
           price: number
@@ -167,6 +236,7 @@ export type Database = {
           business_id?: string
           created_at?: string
           id?: string
+          kot_id?: string | null
           name?: string
           order_id?: string
           price?: number
@@ -179,6 +249,13 @@ export type Database = {
             columns: ["business_id"]
             isOneToOne: false
             referencedRelation: "businesses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_items_kot_id_fkey"
+            columns: ["kot_id"]
+            isOneToOne: false
+            referencedRelation: "kots"
             referencedColumns: ["id"]
           },
           {
@@ -203,7 +280,9 @@ export type Database = {
           created_at: string
           id: string
           kitchen_status: Database["public"]["Enums"]["kitchen_status"]
+          order_type: Database["public"]["Enums"]["order_type"]
           paid_at: string | null
+          parcel_fee: number
           payment: Database["public"]["Enums"]["payment_status"]
           payment_method: Database["public"]["Enums"]["payment_method"] | null
           sent_to_kitchen_at: string
@@ -214,15 +293,15 @@ export type Database = {
           table_name: string | null
           total: number
           updated_at: string
-          order_type: "dine_in" | "takeaway"
-          parcel_fee: number
         }
         Insert: {
           business_id: string
           created_at?: string
           id?: string
           kitchen_status?: Database["public"]["Enums"]["kitchen_status"]
+          order_type?: Database["public"]["Enums"]["order_type"]
           paid_at?: string | null
+          parcel_fee?: number
           payment?: Database["public"]["Enums"]["payment_status"]
           payment_method?: Database["public"]["Enums"]["payment_method"] | null
           sent_to_kitchen_at?: string
@@ -233,15 +312,15 @@ export type Database = {
           table_name?: string | null
           total?: number
           updated_at?: string
-          order_type?: "dine_in" | "takeaway"
-          parcel_fee?: number
         }
         Update: {
           business_id?: string
           created_at?: string
           id?: string
           kitchen_status?: Database["public"]["Enums"]["kitchen_status"]
+          order_type?: Database["public"]["Enums"]["order_type"]
           paid_at?: string | null
+          parcel_fee?: number
           payment?: Database["public"]["Enums"]["payment_status"]
           payment_method?: Database["public"]["Enums"]["payment_method"] | null
           sent_to_kitchen_at?: string
@@ -252,8 +331,6 @@ export type Database = {
           table_name?: string | null
           total?: number
           updated_at?: string
-          order_type?: "dine_in" | "takeaway"
-          parcel_fee?: number
         }
         Relationships: [
           {
@@ -815,10 +892,18 @@ export type Database = {
         Args: { _new_balance: number; _note?: string; _stock_item_id: string }
         Returns: undefined
       }
-      upsert_order_with_items: {
-        Args: { _items: Json; _table_id: string }
-        Returns: string
-      }
+      upsert_order_with_items:
+        | { Args: { _items: Json; _table_id: string }; Returns: string }
+        | {
+            Args: {
+              _items: Json
+              _order_id?: string
+              _order_type?: Database["public"]["Enums"]["order_type"]
+              _parcel_fee?: number
+              _table_id: string
+            }
+            Returns: string
+          }
     }
     Enums: {
       app_role: "owner" | "manager" | "staff" | "chef"
@@ -834,6 +919,7 @@ export type Database = {
         | "Miscellaneous"
       kitchen_status: "queued" | "preparing" | "ready" | "served"
       order_status: "pending" | "completed" | "cancelled"
+      order_type: "dine_in" | "takeaway"
       payment_method: "upi" | "cash"
       payment_status: "unpaid" | "paid"
       priority_level: "low" | "medium" | "high"
@@ -982,6 +1068,9 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {
       app_role: ["owner", "manager", "staff", "chef"],
@@ -998,6 +1087,7 @@ export const Constants = {
       ],
       kitchen_status: ["queued", "preparing", "ready", "served"],
       order_status: ["pending", "completed", "cancelled"],
+      order_type: ["dine_in", "takeaway"],
       payment_method: ["upi", "cash"],
       payment_status: ["unpaid", "paid"],
       priority_level: ["low", "medium", "high"],

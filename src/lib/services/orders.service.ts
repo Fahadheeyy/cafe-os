@@ -12,11 +12,20 @@ export type KitchenStatus = Database["public"]["Enums"]["kitchen_status"];
 
 export type OrderItem = { productId: string | null; name: string; price: number; qty: number };
 
+export type KOT = {
+  id: string;
+  orderId: string;
+  kitchenStatus: KitchenStatus;
+  createdAt: number;
+  items: OrderItem[];
+};
+
 export type Order = {
   id: string;
   tableId: string | null;
   tableName: string | null;
   items: OrderItem[];
+  kots: KOT[];
   total: number;
   status: OrderStatus;
   payment: PaymentStatus;
@@ -34,32 +43,58 @@ export type Order = {
 
 type OrderRow = Database["public"]["Tables"]["orders"]["Row"];
 type ItemRow = Database["public"]["Tables"]["order_items"]["Row"];
+type KotRow = Database["public"]["Tables"]["kots"]["Row"];
 
 const toEpoch = (iso: string | null | undefined) => (iso ? new Date(iso).getTime() : 0);
 
-const fromRow = (o: OrderRow, items: ItemRow[]): Order => ({
-  id: o.id,
-  tableId: o.table_id,
-  tableName: o.table_name,
-  items: items
-    .filter((i) => i.order_id === o.id)
-    .map((i) => ({ productId: i.product_id, name: i.name, price: Number(i.price), qty: i.qty })),
-  total: Number(o.total),
-  status: o.status,
-  payment: o.payment,
-  paymentMethod: o.payment_method ?? undefined,
-  staffId: o.staff_id,
-  staffName: o.staff_name,
-  createdAt: toEpoch(o.created_at),
-  updatedAt: toEpoch(o.updated_at),
-  paidAt: o.paid_at ? toEpoch(o.paid_at) : undefined,
-  kitchenStatus: o.kitchen_status,
-  sentToKitchenAt: toEpoch(o.sent_to_kitchen_at),
-  orderType: o.order_type,
-  parcelFee: Number(o.parcel_fee),
-});
+const fromRow = (o: OrderRow, items: ItemRow[], kots: KotRow[]): Order => {
+  const orderItems = items.filter((i) => i.order_id === o.id);
+  const groupedItems = orderItems.reduce((acc, i) => {
+    const key = i.product_id ?? i.name;
+    if (!acc[key]) acc[key] = { productId: i.product_id, name: i.name, price: Number(i.price), qty: 0 };
+    acc[key].qty += i.qty;
+    return acc;
+  }, {} as Record<string, OrderItem>);
 
-/** Fetch orders + items for the business. Two queries + local join keeps types simple. */
+  const orderKots = kots
+    .filter((k) => k.order_id === o.id)
+    .map((k) => {
+      const kotItems = orderItems
+        .filter((i) => i.kot_id === k.id)
+        .map((i) => ({ productId: i.product_id, name: i.name, price: Number(i.price), qty: i.qty }));
+      return {
+        id: k.id,
+        orderId: k.order_id!,
+        kitchenStatus: k.kitchen_status ?? "queued",
+        createdAt: toEpoch(k.created_at),
+        items: kotItems,
+      };
+    })
+    .sort((a, b) => a.createdAt - b.createdAt);
+
+  return {
+    id: o.id,
+    tableId: o.table_id,
+    tableName: o.table_name,
+    items: Object.values(groupedItems),
+    kots: orderKots,
+    total: Number(o.total),
+    status: o.status,
+    payment: o.payment,
+    paymentMethod: o.payment_method ?? undefined,
+    staffId: o.staff_id,
+    staffName: o.staff_name,
+    createdAt: toEpoch(o.created_at),
+    updatedAt: toEpoch(o.updated_at),
+    paidAt: o.paid_at ? toEpoch(o.paid_at) : undefined,
+    kitchenStatus: o.kitchen_status,
+    sentToKitchenAt: toEpoch(o.sent_to_kitchen_at),
+    orderType: o.order_type,
+    parcelFee: Number(o.parcel_fee),
+  };
+};
+
+/** Fetch orders + items + kots for the business. */
 export async function listOrders(): Promise<Order[]> {
   const { data: orders, error: e1 } = await supabase
     .from("orders")
@@ -69,9 +104,13 @@ export async function listOrders(): Promise<Order[]> {
   if (e1) throw e1;
   const ids = (orders ?? []).map((o) => o.id);
   if (ids.length === 0) return [];
-  const { data: items, error: e2 } = await supabase.from("order_items").select("*").in("order_id", ids);
+  const [{ data: items, error: e2 }, { data: kots, error: e3 }] = await Promise.all([
+    supabase.from("order_items").select("*").in("order_id", ids),
+    supabase.from("kots").select("*").in("order_id", ids),
+  ]);
   if (e2) throw e2;
-  return (orders ?? []).map((o) => fromRow(o, items ?? []));
+  if (e3) throw e3;
+  return (orders ?? []).map((o) => fromRow(o, items ?? [], kots ?? []));
 }
 
 export async function getOpenOrder(tableId: string): Promise<Order | null> {
@@ -86,9 +125,13 @@ export async function getOpenOrder(tableId: string): Promise<Order | null> {
     .maybeSingle();
   if (error) throw error;
   if (!order) return null;
-  const { data: items, error: e2 } = await supabase.from("order_items").select("*").eq("order_id", order.id);
+  const [{ data: items, error: e2 }, { data: kots, error: e3 }] = await Promise.all([
+    supabase.from("order_items").select("*").eq("order_id", order.id),
+    supabase.from("kots").select("*").eq("order_id", order.id),
+  ]);
   if (e2) throw e2;
-  return fromRow(order, items ?? []);
+  if (e3) throw e3;
+  return fromRow(order, items ?? [], kots ?? []);
 }
 
 export async function getOrder(orderId: string): Promise<Order | null> {
@@ -99,9 +142,13 @@ export async function getOrder(orderId: string): Promise<Order | null> {
     .maybeSingle();
   if (error) throw error;
   if (!order) return null;
-  const { data: items, error: e2 } = await supabase.from("order_items").select("*").eq("order_id", order.id);
+  const [{ data: items, error: e2 }, { data: kots, error: e3 }] = await Promise.all([
+    supabase.from("order_items").select("*").eq("order_id", order.id),
+    supabase.from("kots").select("*").eq("order_id", order.id),
+  ]);
   if (e2) throw e2;
-  return fromRow(order, items ?? []);
+  if (e3) throw e3;
+  return fromRow(order, items ?? [], kots ?? []);
 }
 
 /** Atomic save via RPC. Returns the affected order id. */
@@ -133,7 +180,7 @@ export async function cancelOrder(orderId: string): Promise<void> {
   if (error) throw error;
 }
 
-export async function setKitchenStatus(orderId: string, status: KitchenStatus): Promise<void> {
-  const { error } = await supabase.from("orders").update({ kitchen_status: status }).eq("id", orderId);
+export async function setKitchenStatus(kotId: string, status: KitchenStatus): Promise<void> {
+  const { error } = await supabase.from("kots").update({ kitchen_status: status }).eq("id", kotId);
   if (error) throw error;
 }

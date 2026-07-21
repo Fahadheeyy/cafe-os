@@ -19,7 +19,7 @@ const nav = [
 function Links({ onNav }: { onNav?: () => void }) {
   const pathname = useRouterState({ select: (r) => r.location.pathname });
   return (
-    <nav className="flex lg:flex-col gap-1 p-3">
+    <nav className="flex flex-col gap-1 p-3">
       {nav.map((item) => {
         const active = pathname === item.to || pathname.startsWith(item.to + "/");
         const Icon = item.icon;

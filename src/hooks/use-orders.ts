@@ -47,6 +47,9 @@ export function useOrders() {
       .on("postgres_changes", { event: "*", schema: "public", table: "order_items" }, () => {
         qc.invalidateQueries({ queryKey: ["orders", bid] });
       })
+      .on("postgres_changes", { event: "*", schema: "public", table: "kots" }, () => {
+        qc.invalidateQueries({ queryKey: ["orders", bid] });
+      })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [bid, qc]);
@@ -123,14 +126,17 @@ export function useSetKitchenStatus() {
   const qc = useQueryClient();
   const bid = business?.id ?? "";
   return useMutation({
-    mutationFn: ({ orderId, status }: { orderId: string; status: KitchenStatus }) => setKitchenStatus(orderId, status),
-    onMutate: async ({ orderId, status }) => {
+    mutationFn: ({ kotId, status }: { kotId: string; status: KitchenStatus }) => setKitchenStatus(kotId, status),
+    onMutate: async ({ kotId, status }) => {
       await qc.cancelQueries({ queryKey: orderKeys.all(bid) });
       const prev = qc.getQueryData<Order[]>(orderKeys.all(bid));
       if (prev) {
         qc.setQueryData<Order[]>(
           orderKeys.all(bid),
-          prev.map((o) => (o.id === orderId ? { ...o, kitchenStatus: status } : o)),
+          prev.map((o) => ({
+            ...o,
+            kots: o.kots.map((k) => (k.id === kotId ? { ...k, kitchenStatus: status } : k)),
+          }))
         );
       }
       return { prev };
@@ -140,11 +146,24 @@ export function useSetKitchenStatus() {
   });
 }
 
-/** FIFO kitchen queue: pending orders with items, oldest sent_to_kitchen_at first. */
+export type KitchenTicket = import("@/lib/services/orders.service").KOT & {
+  tableName: string | null;
+  staffName: string;
+};
+
+/** FIFO kitchen queue: pending tickets, oldest first. */
 export function useKitchenQueue() {
   const orders = useOrders();
-  const queue = (orders.data ?? [])
-    .filter((o) => o.status === "pending" && o.items.length > 0 && o.kitchenStatus !== "served")
-    .sort((a, b) => a.sentToKitchenAt - b.sentToKitchenAt);
+  const queue: KitchenTicket[] = (orders.data ?? [])
+    .filter((o) => o.status === "pending")
+    .flatMap((o) =>
+      o.kots.map((k) => ({
+        ...k,
+        tableName: o.tableName,
+        staffName: o.staffName,
+      }))
+    )
+    .filter((k) => k.items.length > 0 && k.kitchenStatus !== "served")
+    .sort((a, b) => a.createdAt - b.createdAt);
   return { ...orders, data: queue };
 }

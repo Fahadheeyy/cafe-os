@@ -42,6 +42,7 @@ export type Business = {
   currency: string;
   tax_percent: number;
   logo: string | null;
+  parcel_fee: number;
 };
 
 export type SignUpOwnerInput = {
@@ -126,7 +127,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (prof?.business_id) {
       const { data: biz, error: bizErr } = await supabase
         .from("businesses")
-        .select("id,name,currency,tax_percent,logo")
+        .select("id,name,currency,tax_percent,logo,parcel_fee")
         .eq("id", prof.business_id)
         .maybeSingle();
       if (bizErr) throw bizErr;

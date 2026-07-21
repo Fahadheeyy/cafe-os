@@ -38,25 +38,34 @@ function ChefDashboard() {
   const { data: orders = [], isLoading, isError, error, refetch } = useOrders();
   const setKitchen = useSetKitchenStatus();
 
-  const active = orders.filter((o) => o.status === "pending" && o.items.length > 0);
-  const queue = active
-    .filter((o) => o.kitchenStatus === "queued" || o.kitchenStatus === "preparing")
-    .slice()
-    .sort((a, b) => a.sentToKitchenAt - b.sentToKitchenAt);
-  const ready = active
-    .filter((o) => o.kitchenStatus === "ready")
-    .slice()
-    .sort((a, b) => a.updatedAt - b.updatedAt);
+  const activeOrders = orders.filter((o) => o.status === "pending" && o.items.length > 0);
+  
+  const allKots = activeOrders.flatMap((o) => 
+    o.kots.map((k) => ({
+      ...k,
+      tableName: o.tableName,
+      staffName: o.staffName,
+      kotTotal: k.items.reduce((sum, i) => sum + i.price * i.qty, 0)
+    }))
+  ).filter((k) => k.items.length > 0 && k.kitchenStatus !== "served");
+
+  const queue = allKots
+    .filter((k) => k.kitchenStatus === "queued" || k.kitchenStatus === "preparing")
+    .sort((a, b) => a.createdAt - b.createdAt);
+    
+  const ready = allKots
+    .filter((k) => k.kitchenStatus === "ready")
+    .sort((a, b) => a.createdAt - b.createdAt);
 
   const kpis: Array<{ label: string; value: number; tone?: "success" | "warning" | "danger" | "info" }> = [
-    { label: "In queue", value: queue.filter((o) => o.kitchenStatus === "queued").length, tone: "info" },
-    { label: "Preparing", value: queue.filter((o) => o.kitchenStatus === "preparing").length, tone: "warning" },
+    { label: "In queue", value: queue.filter((k) => k.kitchenStatus === "queued").length, tone: "info" },
+    { label: "Preparing", value: queue.filter((k) => k.kitchenStatus === "preparing").length, tone: "warning" },
     { label: "Ready to serve", value: ready.length, tone: ready.length ? "success" : undefined },
-    { label: "Active tickets", value: active.length },
+    { label: "Active tickets", value: allKots.length },
   ];
 
   const advance = async (id: string, to: KitchenStatus) => {
-    try { await setKitchen.mutateAsync({ orderId: id, status: to }); }
+    try { await setKitchen.mutateAsync({ kotId: id, status: to }); }
     catch (err) { toast.error(err instanceof Error ? err.message : "Could not update ticket"); }
   };
 
@@ -83,34 +92,34 @@ function ChefDashboard() {
           <EmptyState compact icon={Utensils} description="No tickets waiting. Nice work." />
         ) : (
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-            {queue.map((o, idx) => {
-              const isPrep = o.kitchenStatus === "preparing";
+            {queue.map((k, idx) => {
+              const isPrep = k.kitchenStatus === "preparing";
               return (
-                <div key={o.id} className={`p-4 rounded-2xl border-2 ${isPrep ? "border-amber-400 bg-amber-50/40" : "border-primary/40 bg-primary/5"}`}>
+                <div key={k.id} className={`p-4 rounded-2xl border-2 ${isPrep ? "border-amber-400 bg-amber-50/40" : "border-primary/40 bg-primary/5"}`}>
                   <div className="flex items-start justify-between gap-2 mb-2">
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">
                         <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-foreground text-background">#{idx + 1}</span>
-                        <p className="font-semibold truncate">{o.tableName}</p>
+                        <p className="font-semibold truncate">{k.tableName}</p>
                       </div>
                       <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1">
-                        <Clock className="h-3 w-3" /> {minsAgo(o.sentToKitchenAt)} · {o.staffName}
+                        <Clock className="h-3 w-3" /> {minsAgo(k.createdAt)} · {k.staffName}
                       </p>
                     </div>
                     <StatusPill tone={isPrep ? "warning" : "info"}>{isPrep ? "Preparing" : "Queued"}</StatusPill>
                   </div>
                   <ul className="text-sm space-y-1 border-t pt-2 mb-3">
-                    {o.items.map((i, k) => (
-                      <li key={i.productId ?? k} className="flex justify-between gap-2">
+                    {k.items.map((i, idx) => (
+                      <li key={i.productId ?? idx} className="flex justify-between gap-2">
                         <span className="truncate"><span className="font-semibold text-primary">×{i.qty}</span> {i.name}</span>
                       </li>
                     ))}
                   </ul>
                   <div className="flex gap-2">
-                    {o.kitchenStatus === "queued" ? (
-                      <Button size="sm" className="flex-1 min-h-11" onClick={() => advance(o.id, "preparing")}>Start preparing</Button>
+                    {k.kitchenStatus === "queued" ? (
+                      <Button size="sm" className="flex-1 min-h-11" onClick={() => advance(k.id, "preparing")}>Start preparing</Button>
                     ) : (
-                      <Button size="sm" className="flex-1 min-h-11 bg-emerald-600 hover:bg-emerald-700" onClick={() => advance(o.id, "ready")}>
+                      <Button size="sm" className="flex-1 min-h-11 bg-emerald-600 hover:bg-emerald-700" onClick={() => advance(k.id, "ready")}>
                         <CheckCircle2 className="h-4 w-4 mr-1" /> Mark ready
                       </Button>
                     )}
@@ -125,13 +134,13 @@ function ChefDashboard() {
       {ready.length > 0 && (
         <SectionCard title="Ready to serve" icon={CheckCircle2}>
           <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-            {ready.map((o) => (
-              <div key={o.id} className="p-3 rounded-xl border bg-emerald-50/60 flex items-center justify-between gap-2">
+            {ready.map((k) => (
+              <div key={k.id} className="p-3 rounded-xl border bg-emerald-50/60 flex items-center justify-between gap-2">
                 <div className="min-w-0">
-                  <p className="font-semibold truncate">{o.tableName}</p>
-                  <p className="text-xs text-muted-foreground">{o.items.length} items · {money(o.total, currency)}</p>
+                  <p className="font-semibold truncate">{k.tableName}</p>
+                  <p className="text-xs text-muted-foreground">{k.items.length} items · {money(k.kotTotal, currency)}</p>
                 </div>
-                <Button size="sm" variant="outline" className="min-h-10 shrink-0" onClick={() => advance(o.id, "served")}>Served</Button>
+                <Button size="sm" variant="outline" className="min-h-10 shrink-0" onClick={() => advance(k.id, "served")}>Served</Button>
               </div>
             ))}
           </div>
