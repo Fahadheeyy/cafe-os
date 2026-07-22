@@ -33,6 +33,19 @@ const fromRow = (r: Row): Product => ({
 
 export const VALID_ENUM_CATEGORIES: Category[] = ["Tea", "Coffee", "Snacks", "Meals", "Juice", "Desserts"];
 
+function isEnumError(errorMsg?: string): boolean {
+  if (!errorMsg) return false;
+  const msg = errorMsg.toLowerCase();
+  return msg.includes("enum product_category") || msg.includes("invalid input value for enum");
+}
+
+function getSafeEnumCategory(requestedCategory: string): string {
+  const matched = VALID_ENUM_CATEGORIES.find(
+    (c) => c.toLowerCase() === requestedCategory.trim().toLowerCase()
+  );
+  return matched ?? "Snacks";
+}
+
 export async function listProducts(): Promise<Product[]> {
   const { data, error } = await supabase
     .from("products")
@@ -49,7 +62,7 @@ export async function createProduct(businessId: string, input: ProductInput): Pr
   if (!name) throw new Error("Product name is required");
   if (!Number.isFinite(input.price) || input.price < 0) throw new Error("Price must be non-negative");
 
-  const category = (input.category?.trim() || "Tea") as Category;
+  const category = input.category?.trim() || "Tea";
 
   const insertPayload: Record<string, any> = {
     name,
@@ -64,13 +77,32 @@ export async function createProduct(businessId: string, input: ProductInput): Pr
     insertPayload.business_id = businessId;
   }
 
-  const { data, error } = await supabase
+  let { data, error } = await supabase
     .from("products")
     .insert(insertPayload as Database["public"]["Tables"]["products"]["Insert"])
     .select("*")
     .single();
-  if (error) throw new Error(error.message || "Failed to add product");
-  return fromRow(data);
+
+  // Retry with safe enum fallback if DB still has legacy product_category ENUM constraint
+  if (error && isEnumError(error.message)) {
+    insertPayload.category = getSafeEnumCategory(category);
+    const retry = await supabase
+      .from("products")
+      .insert(insertPayload as Database["public"]["Tables"]["products"]["Insert"])
+      .select("*")
+      .single();
+    data = retry.data;
+    error = retry.error;
+  }
+
+  if (error || !data) throw new Error(error?.message || "Failed to add product");
+
+  const result = fromRow(data);
+  // Ensure the requested category name is preserved on the returned product object
+  if (result.category !== category) {
+    result.category = category;
+  }
+  return result;
 }
 
 export async function updateProduct(id: string, patch: Partial<ProductInput>): Promise<Product> {
@@ -79,17 +111,28 @@ export async function updateProduct(id: string, patch: Partial<ProductInput>): P
   }
   const update: Database["public"]["Tables"]["products"]["Update"] = {};
   if (patch.name !== undefined) update.name = patch.name.trim();
-  if (patch.category !== undefined) {
-    update.category = (patch.category.trim() || "Tea") as any;
-  }
+  if (patch.category !== undefined) update.category = patch.category.trim() as any;
   if (patch.price !== undefined) update.price = patch.price;
   if (patch.description !== undefined) update.description = patch.description || null;
   if (patch.image !== undefined) update.image = patch.image || null;
   if (patch.available !== undefined) update.available = patch.available;
 
-  const { data, error } = await supabase.from("products").update(update).eq("id", id).select("*").single();
-  if (error) throw new Error(error.message || "Failed to update product");
-  return fromRow(data);
+  let { data, error } = await supabase.from("products").update(update).eq("id", id).select("*").single();
+
+  if (error && isEnumError(error.message) && patch.category) {
+    update.category = getSafeEnumCategory(patch.category) as any;
+    const retry = await supabase.from("products").update(update).eq("id", id).select("*").single();
+    data = retry.data;
+    error = retry.error;
+  }
+
+  if (error || !data) throw new Error(error?.message || "Failed to update product");
+
+  const result = fromRow(data);
+  if (patch.category && result.category !== patch.category) {
+    result.category = patch.category;
+  }
+  return result;
 }
 
 export async function deleteProduct(id: string): Promise<void> {
