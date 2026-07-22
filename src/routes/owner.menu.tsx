@@ -70,7 +70,8 @@ function MenuPage() {
 
   const openNew = () => {
     setEditing(null);
-    setForm({ name: "", category: categories[0] ?? "Tea", price: "", description: "", available: true });
+    const initialCat = cat !== "All" ? cat : (categories[0] ?? "Tea");
+    setForm({ name: "", category: initialCat, price: "", description: "", available: true });
     setOpen(true);
   };
 

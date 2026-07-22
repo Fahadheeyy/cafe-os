@@ -49,12 +49,11 @@ export async function createProduct(businessId: string, input: ProductInput): Pr
   if (!name) throw new Error("Product name is required");
   if (!Number.isFinite(input.price) || input.price < 0) throw new Error("Price must be non-negative");
 
-  // Postgres category column is typed product_category ENUM ('Tea', 'Coffee', 'Snacks', 'Meals', 'Juice', 'Desserts')
-  const validCategory = VALID_ENUM_CATEGORIES.includes(input.category) ? input.category : "Tea";
+  const category = (input.category?.trim() || "Tea") as Category;
 
   const insertPayload: Record<string, any> = {
     name,
-    category: validCategory as any,
+    category,
     price: input.price,
     description: input.description?.trim() || null,
     image: input.image || null,
@@ -81,8 +80,7 @@ export async function updateProduct(id: string, patch: Partial<ProductInput>): P
   const update: Database["public"]["Tables"]["products"]["Update"] = {};
   if (patch.name !== undefined) update.name = patch.name.trim();
   if (patch.category !== undefined) {
-    const validCat = VALID_ENUM_CATEGORIES.includes(patch.category) ? patch.category : "Tea";
-    update.category = validCat as any;
+    update.category = (patch.category.trim() || "Tea") as any;
   }
   if (patch.price !== undefined) update.price = patch.price;
   if (patch.description !== undefined) update.description = patch.description || null;
