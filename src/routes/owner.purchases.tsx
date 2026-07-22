@@ -185,7 +185,7 @@ function NewPurchaseForm({ onDone }: { onDone: () => void }) {
     record({
       supplier: sup,
       invoiceNumber: invoice.trim() || undefined,
-      purchaseDate: new Date(date).getTime(),
+      purchaseDate: new Date(date + "T00:00:00").getTime(),
       items: lines,
       tax: taxAmt,
     });

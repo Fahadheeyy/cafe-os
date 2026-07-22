@@ -158,7 +158,7 @@ function ExpenseForm({ onSubmit }: {
             if (!title.trim() || !Number(amount)) { toast.error("Title and amount required"); return; }
             onSubmit({
               title: title.trim(), category, amount: Number(amount),
-              notes: notes.trim() || undefined, expenseDate: new Date(date).getTime(),
+              notes: notes.trim() || undefined, expenseDate: new Date(date + "T00:00:00").getTime(),
             });
           }}
         >Save</Button>

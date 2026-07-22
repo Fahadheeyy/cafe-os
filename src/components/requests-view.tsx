@@ -3,7 +3,7 @@
  * approves / rejects. Approved requests remain listed for reference
  * until the owner records the matching purchase.
  */
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Plus, Check, X, ShoppingBag } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -144,6 +144,13 @@ function NewRequestForm({ onSubmit }: {
   const [qty, setQty] = useState("");
   const [priority, setPriority] = useState<Priority>("medium");
   const [notes, setNotes] = useState("");
+
+  useEffect(() => {
+    if ((!stockItemId || !items.some((i) => i.id === stockItemId)) && items.length > 0) {
+      setId(items[0].id);
+    }
+  }, [items, stockItemId]);
+
   const selected = items.find((i) => i.id === stockItemId);
 
   return (

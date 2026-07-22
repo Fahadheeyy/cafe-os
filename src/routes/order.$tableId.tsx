@@ -86,8 +86,8 @@ function OrderScreen() {
 
   const currentCart = cart ?? [];
   const filtered = useMemo(() => {
-    const query = q.toLowerCase();
-    return products.filter((p) => p.category === cat && (!query || p.name.toLowerCase().includes(query)));
+    const query = q.trim().toLowerCase();
+    return products.filter((p) => (query ? true : p.category === cat) && (!query || p.name.toLowerCase().includes(query)));
   }, [products, cat, q]);
 
   const itemsTotal = currentCart.reduce((s, i) => s + i.price * i.qty, 0);

@@ -3,7 +3,7 @@
  * get full CRUD; chefs get "Update Balance" only. Traffic-light health
  * chip driven by `stockStatus` from the store.
  */
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Plus, Search, Trash2, Pencil, History } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -196,6 +196,14 @@ function ItemForm({ title, initial, onSubmit }: {
   const [currentBalance, setCB] = useState(String(initial?.currentBalance ?? 0));
   const [unit, setUnit] = useState<Unit>(initial?.unit ?? "kg");
   const [minimumBalance, setMB] = useState(String(initial?.minimumBalance ?? 0));
+
+  useEffect(() => {
+    setName(initial?.name ?? "");
+    setCategory(initial?.category ?? "Groceries");
+    setCB(String(initial?.currentBalance ?? 0));
+    setUnit(initial?.unit ?? "kg");
+    setMB(String(initial?.minimumBalance ?? 0));
+  }, [initial]);
 
   return (
     <DialogContent>
