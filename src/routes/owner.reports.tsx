@@ -53,7 +53,7 @@ function Report() {
   const purchasesTotal = purchases.filter((p) => inRange(p.purchaseDate)).reduce((s, p) => s + p.total, 0);
   const expensesTotal = expenses.filter((e) => inRange(e.expenseDate)).reduce((s, e) => s + e.amount, 0);
   const wasteCost = waste.filter((w) => inRange(w.createdAt)).reduce((s, w) => s + w.estimatedCost, 0);
-  const profit = revenue - expensesTotal - wasteCost;
+  const profit = revenue - expensesTotal - wasteCost - purchasesTotal;
 
   const lowStock = stock.filter((s) => stockStatus(s) !== "sufficient");
   const pendingRequests = requests.filter((r) => r.status === "pending");

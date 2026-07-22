@@ -78,9 +78,12 @@ export function FloorOps({ manageTablesHref = "/owner/tables" }: { manageTablesH
     } catch (err) { toast.error(err instanceof Error ? err.message : "Could not settle bill"); }
   };
 
-  const advance = async (id: string, ks: KitchenStatus) => {
-    try { await setKitchenMut.mutateAsync({ kotId: id, status: ks }); }
-    catch (err) { toast.error(err instanceof Error ? err.message : "Could not update ticket"); }
+  const advance = async (order: Order, ks: KitchenStatus) => {
+    try {
+      const activeKots = order.kots.filter((k) => k.kitchenStatus !== "served");
+      if (activeKots.length === 0) return;
+      await Promise.all(activeKots.map((k) => setKitchenMut.mutateAsync({ kotId: k.id, status: ks })));
+    } catch (err) { toast.error(err instanceof Error ? err.message : "Could not update ticket"); }
   };
 
   const cancel = async (o: Order) => {
@@ -167,9 +170,9 @@ export function FloorOps({ manageTablesHref = "/owner/tables" }: { manageTablesH
 
                   {o.kitchenStatus !== "served" && (
                     <div className="flex gap-1.5 mb-2">
-                      {o.kitchenStatus === "queued" && <Button size="sm" variant="outline" className="flex-1 min-h-10" onClick={() => advance(o.id, "preparing")}>Start</Button>}
-                      {o.kitchenStatus === "preparing" && <Button size="sm" variant="outline" className="flex-1 min-h-10" onClick={() => advance(o.id, "ready")}>Ready</Button>}
-                      {o.kitchenStatus === "ready" && <Button size="sm" variant="outline" className="flex-1 min-h-10" onClick={() => advance(o.id, "served")}>Served</Button>}
+                      {o.kitchenStatus === "queued" && <Button size="sm" variant="outline" className="flex-1 min-h-10" onClick={() => advance(o, "preparing")}>Start</Button>}
+                      {o.kitchenStatus === "preparing" && <Button size="sm" variant="outline" className="flex-1 min-h-10" onClick={() => advance(o, "ready")}>Ready</Button>}
+                      {o.kitchenStatus === "ready" && <Button size="sm" variant="outline" className="flex-1 min-h-10" onClick={() => advance(o, "served")}>Served</Button>}
                     </div>
                   )}
 

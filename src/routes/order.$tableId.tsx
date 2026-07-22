@@ -87,7 +87,12 @@ function OrderScreen() {
   const currentCart = cart ?? [];
   const filtered = useMemo(() => {
     const query = q.trim().toLowerCase();
-    return products.filter((p) => (query ? true : p.category === cat) && (!query || p.name.toLowerCase().includes(query)));
+    if (query) {
+      // Search mode: show all matching products across all categories
+      return products.filter((p) => p.name.toLowerCase().includes(query));
+    }
+    // Category browse mode
+    return products.filter((p) => p.category === cat);
   }, [products, cat, q]);
 
   const itemsTotal = currentCart.reduce((s, i) => s + i.price * i.qty, 0);

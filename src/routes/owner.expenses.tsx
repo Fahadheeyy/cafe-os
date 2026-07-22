@@ -67,7 +67,6 @@ function Expenses() {
           <SelectContent>
             <SelectItem value="all">All categories</SelectItem>
             {EXPENSE_CATEGORIES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-            <SelectItem value="Purchases">Purchases</SelectItem>
           </SelectContent>
         </Select>
         <Dialog open={open} onOpenChange={setOpen}>

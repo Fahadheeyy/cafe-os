@@ -227,6 +227,7 @@ export async function upsertOrder(
     }
   }
 
+  if (!affectedOrderId) throw new Error("Order could not be saved — please try again.");
   return affectedOrderId;
 }
 
