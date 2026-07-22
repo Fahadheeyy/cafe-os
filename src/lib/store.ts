@@ -31,8 +31,9 @@ export type Role = "owner" | "manager" | "staff" | "chef";
 export type User = { id: string; name: string; email: string; role: Role; active: boolean; password: string };
 
 /** Menu categories shown as tabs on the POS screen. */
-export type Category = "Tea" | "Coffee" | "Snacks" | "Meals" | "Juice" | "Desserts";
-export const CATEGORIES: Category[] = ["Tea", "Coffee", "Snacks", "Meals", "Juice", "Desserts"];
+export type Category = string;
+export const DEFAULT_CATEGORIES: string[] = ["Tea", "Coffee", "Snacks", "Meals", "Juice", "Desserts"];
+export const CATEGORIES: Category[] = DEFAULT_CATEGORIES;
 
 export type Product = {
   id: string;
@@ -175,6 +176,7 @@ type State = {
   purchases: Purchase[];
   expenses: Expense[];
   waste: WasteEntry[];
+  categories: string[];
   suppliers: string[];
   // auth
   login: (email: string, password: string) => User | null;
@@ -183,6 +185,10 @@ type State = {
   removeUser: (id: string) => void;
   toggleUserActive: (id: string) => void;
   resetPassword: (id: string, pw: string) => void;
+  // categories
+  addCategory: (name: string) => void;
+  updateCategory: (oldName: string, newName: string) => void;
+  deleteCategory: (name: string) => void;
   // products
   addProduct: (p: Omit<Product, "id">) => void;
   updateProduct: (id: string, p: Partial<Product>) => void;
@@ -294,6 +300,7 @@ export const useStore = create<State>()(
       purchases: [],
       expenses: [],
       waste: [],
+      categories: DEFAULT_CATEGORIES,
       suppliers: ["Fresh Dairy Co.", "Metro Wholesale", "Green Farms"],
 
       login: (email, password) => {
@@ -323,6 +330,33 @@ export const useStore = create<State>()(
       resetPassword: (id, pw) => {
         if (!pw || pw.length < 4) throw new Error("Password must be at least 4 characters");
         set((s) => ({ users: s.users.map((u) => (u.id === id ? { ...u, password: pw } : u)) }));
+      },
+
+      addCategory: (name) => {
+        const n = name?.trim();
+        if (!n) throw new Error("Category name is required");
+        const state = get();
+        if (state.categories.some((c) => c.toLowerCase() === n.toLowerCase())) {
+          throw new Error("Category already exists");
+        }
+        set((s) => ({ categories: [...s.categories, n] }));
+      },
+      updateCategory: (oldName, newName) => {
+        const n = newName?.trim();
+        if (!n) throw new Error("Category name is required");
+        const state = get();
+        if (state.categories.some((c) => c.toLowerCase() === n.toLowerCase() && c !== oldName)) {
+          throw new Error("A category with this name already exists");
+        }
+        set((s) => ({
+          categories: s.categories.map((c) => (c === oldName ? n : c)),
+          products: s.products.map((p) => (p.category === oldName ? { ...p, category: n } : p)),
+        }));
+      },
+      deleteCategory: (name) => {
+        const state = get();
+        if (state.categories.length <= 1) throw new Error("At least one category must remain");
+        set((s) => ({ categories: s.categories.filter((c) => c !== name) }));
       },
 
       addProduct: (p) => {
@@ -596,7 +630,7 @@ export const useStore = create<State>()(
       name: "cafeos-store",
       // Bump `version` and add a case in `migrate` whenever the persisted
       // shape needs a change that would otherwise break existing sessions.
-      version: 5,
+      version: 6,
       migrate: (persisted: any, _version) => {
         // v3: ensure the demo `chef@cafe.com` user exists on older snapshots.
         if (persisted && Array.isArray(persisted.users)) {
@@ -626,6 +660,10 @@ export const useStore = create<State>()(
               { id: "manager-1", name: "Priya", email: "manager@cafe.com", role: "manager", active: true, password: "manager123" },
             ];
           }
+        }
+        // v6: backfill default categories array if missing
+        if (persisted && (!Array.isArray(persisted.categories) || persisted.categories.length === 0)) {
+          persisted.categories = DEFAULT_CATEGORIES;
         }
         return persisted;
       },

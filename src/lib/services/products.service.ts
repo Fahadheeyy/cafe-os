@@ -6,8 +6,9 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 
-export type Category = Database["public"]["Enums"]["product_category"];
-export const CATEGORIES: Category[] = ["Tea", "Coffee", "Snacks", "Meals", "Juice", "Desserts"];
+export type Category = string;
+export const DEFAULT_CATEGORIES: Category[] = ["Tea", "Coffee", "Snacks", "Meals", "Juice", "Desserts"];
+export const CATEGORIES: Category[] = DEFAULT_CATEGORIES;
 
 export type Product = {
   id: string;
@@ -50,7 +51,7 @@ export async function createProduct(businessId: string, input: ProductInput): Pr
     .insert({
       business_id: businessId,
       name,
-      category: input.category,
+      category: input.category as any,
       price: input.price,
       description: input.description || null,
       image: input.image || null,
@@ -68,7 +69,7 @@ export async function updateProduct(id: string, patch: Partial<ProductInput>): P
   }
   const update: Database["public"]["Tables"]["products"]["Update"] = {};
   if (patch.name !== undefined) update.name = patch.name.trim();
-  if (patch.category !== undefined) update.category = patch.category;
+  if (patch.category !== undefined) update.category = patch.category as any;
   if (patch.price !== undefined) update.price = patch.price;
   if (patch.description !== undefined) update.description = patch.description || null;
   if (patch.image !== undefined) update.image = patch.image || null;

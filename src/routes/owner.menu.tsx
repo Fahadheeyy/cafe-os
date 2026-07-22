@@ -1,7 +1,7 @@
 /** Menu management (`/owner/menu`). CRUD for products, search + category filter. */
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { Plus, Pencil, Trash2, Search, Loader2 } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, Loader2, FolderPlus, Check, X } from "lucide-react";
 import { toast } from "sonner";
 import { AuthGuard } from "@/components/auth-guard";
 import { OwnerShell } from "@/components/owner-shell";
@@ -14,10 +14,11 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { CATEGORIES, type Category, type Product } from "@/lib/services/products.service";
+import { type Category, type Product } from "@/lib/services/products.service";
 import { money } from "@/lib/format";
 import { useAuth } from "@/hooks/use-auth";
 import { useCreateProduct, useDeleteProduct, useProducts, useUpdateProduct } from "@/hooks/use-products";
+import { useCategories } from "@/hooks/use-categories";
 
 export const Route = createFileRoute("/owner/menu")({
   ssr: false,
@@ -30,12 +31,11 @@ export const Route = createFileRoute("/owner/menu")({
   ),
 });
 
-const empty = { name: "", category: "Tea" as Category, price: 0, description: "", available: true };
-
 function MenuPage() {
   const { business } = useAuth();
   const currency = business?.currency ?? "₹";
   const { data: products = [], isLoading, isError, error, refetch } = useProducts();
+  const { categories, addCategory, updateCategory, deleteCategory } = useCategories();
   const createMut = useCreateProduct();
   const updateMut = useUpdateProduct();
   const deleteMut = useDeleteProduct();
@@ -44,7 +44,16 @@ function MenuPage() {
   const [cat, setCat] = useState<Category | "All">("All");
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Product | null>(null);
-  const [form, setForm] = useState(empty);
+  
+  const defaultCategory = categories[0] ?? "Tea";
+  const [form, setForm] = useState({ name: "", category: defaultCategory, price: 0, description: "", available: true });
+
+  // Category Manager dialog state
+  const [catOpen, setCatOpen] = useState(false);
+  const [newCatName, setNewCatName] = useState("");
+  const [editingCat, setEditingCat] = useState<string | null>(null);
+  const [editingCatName, setEditingCatName] = useState("");
+  const [savingCat, setSavingCat] = useState(false);
 
   const filtered = useMemo(() => {
     const query = q.toLowerCase();
@@ -53,7 +62,12 @@ function MenuPage() {
     );
   }, [products, q, cat]);
 
-  const openNew = () => { setEditing(null); setForm(empty); setOpen(true); };
+  const openNew = () => {
+    setEditing(null);
+    setForm({ name: "", category: categories[0] ?? "Tea", price: 0, description: "", available: true });
+    setOpen(true);
+  };
+
   const openEdit = (p: Product) => {
     setEditing(p);
     setForm({ name: p.name, category: p.category, price: p.price, description: p.description ?? "", available: p.available });
@@ -91,6 +105,46 @@ function MenuPage() {
     catch (err) { toast.error(err instanceof Error ? err.message : "Update failed"); }
   };
 
+  const handleAddCategory = (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      addCategory(newCatName);
+      toast.success(`Category "${newCatName.trim()}" added`);
+      setNewCatName("");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to add category");
+    }
+  };
+
+  const handleStartEditCat = (c: string) => {
+    setEditingCat(c);
+    setEditingCatName(c);
+  };
+
+  const handleSaveCat = async (oldName: string) => {
+    if (!editingCatName.trim()) return toast.error("Category name required");
+    setSavingCat(true);
+    try {
+      await updateCategory(oldName, editingCatName);
+      toast.success(`Category renamed to "${editingCatName.trim()}"`);
+      setEditingCat(null);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to rename category");
+    } finally {
+      setSavingCat(false);
+    }
+  };
+
+  const handleDeleteCat = (c: string) => {
+    try {
+      deleteCategory(c);
+      toast.success(`Category "${c}" deleted`);
+      if (cat === c) setCat("All");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to delete category");
+    }
+  };
+
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center gap-3">
@@ -99,13 +153,18 @@ function MenuPage() {
           <Input placeholder="Search products..." value={q} onChange={(e) => setQ(e.target.value)} className="pl-9 h-10" />
         </div>
         <Select value={cat} onValueChange={(v) => setCat(v as Category | "All")}>
-          <SelectTrigger className="w-40 h-10"><SelectValue /></SelectTrigger>
+          <SelectTrigger className="w-44 h-10"><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value="All">All categories</SelectItem>
-            {CATEGORIES.map((c) => (<SelectItem key={c} value={c}>{c}</SelectItem>))}
+            {categories.map((c) => (<SelectItem key={c} value={c}>{c}</SelectItem>))}
           </SelectContent>
         </Select>
-        <Button onClick={openNew} className="h-10 hidden sm:inline-flex"><Plus className="h-4 w-4 mr-1" /> Add product</Button>
+        <Button variant="outline" onClick={() => setCatOpen(true)} className="h-10">
+          <FolderPlus className="h-4 w-4 mr-1.5" /> Categories
+        </Button>
+        <Button onClick={openNew} className="h-10 hidden sm:inline-flex">
+          <Plus className="h-4 w-4 mr-1" /> Add product
+        </Button>
       </div>
 
       {isLoading ? (
@@ -160,6 +219,7 @@ function MenuPage() {
         <Plus className="h-6 w-6" />
       </button>
 
+      {/* Add / Edit Product Dialog */}
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader><DialogTitle>{editing ? "Edit product" : "Add product"}</DialogTitle></DialogHeader>
@@ -173,7 +233,7 @@ function MenuPage() {
                 <Label>Category</Label>
                 <Select value={form.category} onValueChange={(v) => setForm({ ...form, category: v as Category })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>{CATEGORIES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+                  <SelectContent>{categories.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
               <div className="space-y-1.5">
@@ -200,6 +260,107 @@ function MenuPage() {
           </form>
         </DialogContent>
       </Dialog>
+
+      {/* Manage Categories Dialog */}
+      <Dialog open={catOpen} onOpenChange={setCatOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Menu Categories</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            {/* Form to add a new category */}
+            <form onSubmit={handleAddCategory} className="flex items-center gap-2">
+              <Input
+                placeholder="New category name..."
+                value={newCatName}
+                onChange={(e) => setNewCatName(e.target.value)}
+                className="h-10 flex-1"
+              />
+              <Button type="submit" className="h-10 whitespace-nowrap">
+                <Plus className="h-4 w-4 mr-1" /> Add
+              </Button>
+            </form>
+
+            {/* List of existing categories */}
+            <div className="divide-y border rounded-xl overflow-hidden max-h-80 overflow-y-auto">
+              {categories.map((c) => {
+                const count = products.filter((p) => p.category === c).length;
+                const isEditingThis = editingCat === c;
+
+                return (
+                  <div key={c} className="flex items-center justify-between p-3 bg-card hover:bg-muted/40 transition">
+                    {isEditingThis ? (
+                      <div className="flex items-center gap-2 flex-1 mr-2">
+                        <Input
+                          value={editingCatName}
+                          onChange={(e) => setEditingCatName(e.target.value)}
+                          className="h-8 text-sm"
+                          autoFocus
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              e.preventDefault();
+                              handleSaveCat(c);
+                            } else if (e.key === "Escape") {
+                              setEditingCat(null);
+                            }
+                          }}
+                        />
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-8 w-8 text-green-600 hover:text-green-700"
+                          onClick={() => handleSaveCat(c)}
+                          disabled={savingCat}
+                        >
+                          <Check className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-8 w-8 text-muted-foreground"
+                          onClick={() => setEditingCat(null)}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="flex items-center gap-2.5">
+                          <span className="font-medium text-sm">{c}</span>
+                          <Badge variant="outline" className="text-[11px] font-normal text-muted-foreground">
+                            {count} {count === 1 ? "item" : "items"}
+                          </Badge>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                            title="Edit category"
+                            onClick={() => handleStartEditCat(c)}
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                            title="Delete category"
+                            onClick={() => handleDeleteCat(c)}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
+

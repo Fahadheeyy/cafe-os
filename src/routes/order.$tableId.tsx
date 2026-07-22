@@ -10,12 +10,13 @@ import { toast } from "sonner";
 import { AuthGuard } from "@/components/auth-guard";
 import { Button } from "@/components/ui/button";
 import { EmptyState, SearchInput } from "@/components/ui-kit";
-import { CATEGORIES, type Category } from "@/lib/services/products.service";
+import { type Category } from "@/lib/services/products.service";
 import type { OrderItem, PaymentMethod } from "@/lib/services/orders.service";
 import { money } from "@/lib/format";
 import { printBill } from "@/lib/print";
 import { useAuth } from "@/hooks/use-auth";
 import { useAvailableProducts } from "@/hooks/use-products";
+import { useCategories } from "@/hooks/use-categories";
 import { useTable, useSetTableStatus } from "@/hooks/use-tables";
 import { useMarkOrderPaid, useOpenOrder, useUpsertOrder } from "@/hooks/use-orders";
 import { getOrder } from "@/lib/services/orders.service";
@@ -43,6 +44,7 @@ function OrderScreen() {
   const table = isTakeaway ? { id: "takeaway", name: "Takeaway", status: "available" } : _table;
   const parcelFeeSetting = business?.parcel_fee ?? 0;
 
+  const { categories } = useCategories();
   const { data: products = [], isLoading: pLoading } = useAvailableProducts();
   const { data: openOrder, isLoading: oLoading } = useOpenOrder(isTakeaway ? undefined : tableId);
   const upsertMut = useUpsertOrder();
@@ -53,7 +55,13 @@ function OrderScreen() {
 
   const [cart, setCart] = useState<OrderItem[] | null>(null);
   const [orderNotes, setOrderNotes] = useState<string>("");
-  const [cat, setCat] = useState<Category>("Tea");
+  const [cat, setCat] = useState<Category>(categories[0] ?? "Tea");
+
+  useEffect(() => {
+    if (categories.length > 0 && !categories.includes(cat)) {
+      setCat(categories[0]);
+    }
+  }, [categories, cat]);
   const [q, setQ] = useState("");
   const [cartOpen, setCartOpen] = useState(false);
   const [method, setMethod] = useState<PaymentMethod>("upi");
@@ -255,7 +263,7 @@ function OrderScreen() {
           <div className="p-4 border-b">
             <SearchInput value={q} onChange={setQ} placeholder="Search menu…" ariaLabel="Search menu" />
             <div className="mt-3 flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
-              {CATEGORIES.map((c) => (
+              {categories.map((c) => (
                 <button
                   key={c}
                   onClick={() => setCat(c)}
