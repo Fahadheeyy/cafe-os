@@ -17,13 +17,13 @@ export const productKeys = {
 };
 
 export function useProducts() {
-  const { business } = useAuth();
+  const { business, profile } = useAuth();
   const qc = useQueryClient();
-  const bid = business?.id ?? "";
+  const bid = business?.id || profile?.business_id || "";
   const query = useQuery({
     queryKey: productKeys.all(bid),
     queryFn: listProducts,
-    enabled: !!bid,
+    enabled: !!profile,
     staleTime: 30_000,
   });
 
@@ -33,7 +33,7 @@ export function useProducts() {
     const channel = supabase
       .channel(`products:${bid}:${channelId}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "products" }, () => {
-        qc.invalidateQueries({ queryKey: productKeys.all(bid) });
+        qc.invalidateQueries({ queryKey: ["products"] });
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
@@ -48,19 +48,21 @@ export function useAvailableProducts() {
 }
 
 export function useCreateProduct() {
-  const { business } = useAuth();
+  const { business, profile } = useAuth();
   const qc = useQueryClient();
-  const bid = business?.id ?? "";
+  const bid = business?.id || profile?.business_id || "";
   return useMutation({
     mutationFn: (input: ProductInput) => createProduct(bid, input),
-    onSuccess: () => qc.invalidateQueries({ queryKey: productKeys.all(bid) }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["products"] });
+    },
   });
 }
 
 export function useUpdateProduct() {
-  const { business } = useAuth();
+  const { business, profile } = useAuth();
   const qc = useQueryClient();
-  const bid = business?.id ?? "";
+  const bid = business?.id || profile?.business_id || "";
   return useMutation({
     mutationFn: ({ id, patch }: { id: string; patch: Partial<ProductInput> }) => updateProduct(id, patch),
     onMutate: async ({ id, patch }) => {
@@ -75,15 +77,16 @@ export function useUpdateProduct() {
       return { prev };
     },
     onError: (_e, _v, ctx) => { if (ctx?.prev) qc.setQueryData(productKeys.all(bid), ctx.prev); },
-    onSettled: () => qc.invalidateQueries({ queryKey: productKeys.all(bid) }),
+    onSettled: () => qc.invalidateQueries({ queryKey: ["products"] }),
   });
 }
 
 export function useDeleteProduct() {
-  const { business } = useAuth();
+  const { business, profile } = useAuth();
   const qc = useQueryClient();
+  const bid = business?.id || profile?.business_id || "";
   return useMutation({
     mutationFn: (id: string) => deleteProduct(id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: productKeys.all(business?.id ?? "") }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["products"] }),
   });
 }

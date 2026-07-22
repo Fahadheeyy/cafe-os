@@ -46,7 +46,13 @@ function MenuPage() {
   const [editing, setEditing] = useState<Product | null>(null);
   
   const defaultCategory = categories[0] ?? "Tea";
-  const [form, setForm] = useState({ name: "", category: defaultCategory, price: 0, description: "", available: true });
+  const [form, setForm] = useState<{
+    name: string;
+    category: Category;
+    price: string | number;
+    description: string;
+    available: boolean;
+  }>({ name: "", category: defaultCategory, price: "", description: "", available: true });
 
   // Category Manager dialog state
   const [catOpen, setCatOpen] = useState(false);
@@ -64,29 +70,43 @@ function MenuPage() {
 
   const openNew = () => {
     setEditing(null);
-    setForm({ name: "", category: categories[0] ?? "Tea", price: 0, description: "", available: true });
+    setForm({ name: "", category: categories[0] ?? "Tea", price: "", description: "", available: true });
     setOpen(true);
   };
 
   const openEdit = (p: Product) => {
     setEditing(p);
-    setForm({ name: p.name, category: p.category, price: p.price, description: p.description ?? "", available: p.available });
+    setForm({ name: p.name, category: p.category, price: String(p.price), description: p.description ?? "", available: p.available });
     setOpen(true);
   };
 
   const save = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.name.trim() || form.price <= 0) return toast.error("Name and valid price required");
+    const name = form.name.trim();
+    const priceNum = typeof form.price === "number" ? form.price : parseFloat(form.price);
+    
+    if (!name) return toast.error("Product name is required");
+    if (isNaN(priceNum) || priceNum < 0) return toast.error("Valid non-negative price is required");
+
+    const payload = {
+      name,
+      category: form.category || categories[0] || "Tea",
+      price: priceNum,
+      description: form.description.trim() || undefined,
+      available: form.available,
+    };
+
     try {
       if (editing) {
-        await updateMut.mutateAsync({ id: editing.id, patch: form });
+        await updateMut.mutateAsync({ id: editing.id, patch: payload });
         toast.success("Product updated");
       } else {
-        await createMut.mutateAsync(form);
+        await createMut.mutateAsync(payload);
         toast.success("Product added");
       }
       setOpen(false);
     } catch (err) {
+      console.error("[save product error]", err);
       toast.error(err instanceof Error ? err.message : "Save failed");
     }
   };
@@ -238,7 +258,15 @@ function MenuPage() {
               </div>
               <div className="space-y-1.5">
                 <Label>Price</Label>
-                <Input type="number" step="0.01" value={form.price} onChange={(e) => setForm({ ...form, price: parseFloat(e.target.value) || 0 })} required />
+                <Input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  placeholder="0.00"
+                  value={form.price}
+                  onChange={(e) => setForm({ ...form, price: e.target.value })}
+                  required
+                />
               </div>
             </div>
             <div className="space-y-1.5">

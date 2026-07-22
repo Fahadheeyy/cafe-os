@@ -46,17 +46,23 @@ export async function createProduct(businessId: string, input: ProductInput): Pr
   const name = input.name.trim();
   if (!name) throw new Error("Product name is required");
   if (!Number.isFinite(input.price) || input.price < 0) throw new Error("Price must be non-negative");
+
+  const insertPayload: Record<string, any> = {
+    name,
+    category: (input.category || "Tea") as any,
+    price: input.price,
+    description: input.description?.trim() || null,
+    image: input.image || null,
+    available: input.available ?? true,
+  };
+
+  if (businessId && businessId.trim() !== "") {
+    insertPayload.business_id = businessId;
+  }
+
   const { data, error } = await supabase
     .from("products")
-    .insert({
-      business_id: businessId,
-      name,
-      category: input.category as any,
-      price: input.price,
-      description: input.description || null,
-      image: input.image || null,
-      available: input.available,
-    } as Database["public"]["Tables"]["products"]["Insert"])
+    .insert(insertPayload as Database["public"]["Tables"]["products"]["Insert"])
     .select("*")
     .single();
   if (error) throw error;
