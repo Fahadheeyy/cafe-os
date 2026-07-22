@@ -31,12 +31,14 @@ const fromRow = (r: Row): Product => ({
   available: r.available,
 });
 
+export const VALID_ENUM_CATEGORIES: Category[] = ["Tea", "Coffee", "Snacks", "Meals", "Juice", "Desserts"];
+
 export async function listProducts(): Promise<Product[]> {
   const { data, error } = await supabase
     .from("products")
     .select("*")
     .order("created_at", { ascending: false });
-  if (error) throw error;
+  if (error) throw new Error(error.message || "Could not load menu.");
   return (data ?? []).map(fromRow);
 }
 
@@ -47,9 +49,12 @@ export async function createProduct(businessId: string, input: ProductInput): Pr
   if (!name) throw new Error("Product name is required");
   if (!Number.isFinite(input.price) || input.price < 0) throw new Error("Price must be non-negative");
 
+  // Postgres category column is typed product_category ENUM ('Tea', 'Coffee', 'Snacks', 'Meals', 'Juice', 'Desserts')
+  const validCategory = VALID_ENUM_CATEGORIES.includes(input.category) ? input.category : "Tea";
+
   const insertPayload: Record<string, any> = {
     name,
-    category: (input.category || "Tea") as any,
+    category: validCategory as any,
     price: input.price,
     description: input.description?.trim() || null,
     image: input.image || null,
@@ -65,7 +70,7 @@ export async function createProduct(businessId: string, input: ProductInput): Pr
     .insert(insertPayload as Database["public"]["Tables"]["products"]["Insert"])
     .select("*")
     .single();
-  if (error) throw error;
+  if (error) throw new Error(error.message || "Failed to add product");
   return fromRow(data);
 }
 
@@ -75,17 +80,22 @@ export async function updateProduct(id: string, patch: Partial<ProductInput>): P
   }
   const update: Database["public"]["Tables"]["products"]["Update"] = {};
   if (patch.name !== undefined) update.name = patch.name.trim();
-  if (patch.category !== undefined) update.category = patch.category as any;
+  if (patch.category !== undefined) {
+    const validCat = VALID_ENUM_CATEGORIES.includes(patch.category) ? patch.category : "Tea";
+    update.category = validCat as any;
+  }
   if (patch.price !== undefined) update.price = patch.price;
   if (patch.description !== undefined) update.description = patch.description || null;
   if (patch.image !== undefined) update.image = patch.image || null;
   if (patch.available !== undefined) update.available = patch.available;
+
   const { data, error } = await supabase.from("products").update(update).eq("id", id).select("*").single();
-  if (error) throw error;
+  if (error) throw new Error(error.message || "Failed to update product");
   return fromRow(data);
 }
 
 export async function deleteProduct(id: string): Promise<void> {
   const { error } = await supabase.from("products").delete().eq("id", id);
-  if (error) throw error;
+  if (error) throw new Error(error.message || "Failed to delete product");
 }
+

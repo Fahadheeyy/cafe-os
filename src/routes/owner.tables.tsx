@@ -50,12 +50,12 @@ function TablesPage() {
       if (editing) { await renameMut.mutateAsync({ id: editing.id, name: name.trim() }); toast.success("Renamed"); }
       else { await createMut.mutateAsync(name.trim()); toast.success("Table added"); }
       setOpen(false);
-    } catch (err) { toast.error(err instanceof Error ? err.message : "Save failed"); }
+    } catch (err: any) { toast.error(err?.message || "Save failed"); }
   };
 
   const remove = async (t: RestaurantTable) => {
     try { await deleteMut.mutateAsync(t.id); toast.success("Removed"); }
-    catch (err) { toast.error(err instanceof Error ? err.message : "Delete failed"); }
+    catch (err: any) { toast.error(err?.message || "Delete failed"); }
   };
 
   return (

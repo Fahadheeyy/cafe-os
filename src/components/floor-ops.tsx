@@ -79,7 +79,7 @@ export function FloorOps({ manageTablesHref = "/owner/tables" }: { manageTablesH
   };
 
   const advance = async (id: string, ks: KitchenStatus) => {
-    try { await setKitchenMut.mutateAsync({ orderId: id, status: ks }); }
+    try { await setKitchenMut.mutateAsync({ kotId: id, status: ks }); }
     catch (err) { toast.error(err instanceof Error ? err.message : "Could not update ticket"); }
   };
 
@@ -96,7 +96,7 @@ export function FloorOps({ manageTablesHref = "/owner/tables" }: { manageTablesH
         subtitle="Active tables, kitchen status, and one-tap billing"
         actions={
           <div className="flex items-center gap-4">
-            <Link to="/order/takeaway" className="text-xs font-medium bg-blue-50 text-blue-600 px-3 py-1.5 rounded-full hover:bg-blue-100 transition">
+            <Link to={"/order/takeaway" as any} className="text-xs font-medium bg-blue-50 text-blue-600 px-3 py-1.5 rounded-full hover:bg-blue-100 transition">
               + New Takeaway
             </Link>
             <Link to={manageTablesHref} className="text-xs text-primary hover:underline">

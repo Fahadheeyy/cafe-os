@@ -105,9 +105,10 @@ function MenuPage() {
         toast.success("Product added");
       }
       setOpen(false);
-    } catch (err) {
+    } catch (err: any) {
       console.error("[save product error]", err);
-      toast.error(err instanceof Error ? err.message : "Save failed");
+      const msg = err?.message || (typeof err === "string" ? err : "Save failed");
+      toast.error(msg);
     }
   };
 
@@ -115,14 +116,14 @@ function MenuPage() {
     try {
       await deleteMut.mutateAsync(p.id);
       toast.success("Deleted");
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Delete failed");
+    } catch (err: any) {
+      toast.error(err?.message || "Delete failed");
     }
   };
 
   const toggleAvailable = async (p: Product, v: boolean) => {
     try { await updateMut.mutateAsync({ id: p.id, patch: { available: v } }); }
-    catch (err) { toast.error(err instanceof Error ? err.message : "Update failed"); }
+    catch (err: any) { toast.error(err?.message || "Update failed"); }
   };
 
   const handleAddCategory = (e: React.FormEvent) => {
@@ -131,8 +132,8 @@ function MenuPage() {
       addCategory(newCatName);
       toast.success(`Category "${newCatName.trim()}" added`);
       setNewCatName("");
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to add category");
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to add category");
     }
   };
 
@@ -148,8 +149,8 @@ function MenuPage() {
       await updateCategory(oldName, editingCatName);
       toast.success(`Category renamed to "${editingCatName.trim()}"`);
       setEditingCat(null);
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to rename category");
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to rename category");
     } finally {
       setSavingCat(false);
     }
@@ -160,8 +161,8 @@ function MenuPage() {
       deleteCategory(c);
       toast.success(`Category "${c}" deleted`);
       if (cat === c) setCat("All");
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to delete category");
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to delete category");
     }
   };
 
