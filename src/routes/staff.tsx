@@ -13,7 +13,7 @@ import { useAuth, useCurrentUser } from "@/hooks/use-auth";
 import { useTables } from "@/hooks/use-tables";
 import { useOrders } from "@/hooks/use-orders";
 import { Button } from "@/components/ui/button";
-import { playNotificationSound } from "@/lib/sound";
+import { playNotificationSound, unlockAudio } from "@/lib/sound";
 
 export const Route = createFileRoute("/staff")({
   ssr: false,
@@ -48,15 +48,25 @@ function StaffHome() {
     );
   }, [orders]);
 
-  const prevReadyCountRef = useRef<number | null>(null);
+  const prevReadyIdsRef = useRef<Set<string> | null>(null);
 
   useEffect(() => {
-    if (prevReadyCountRef.current !== null && readyKots.length > prevReadyCountRef.current) {
-      playNotificationSound("food_ready");
-      const latestReady = readyKots[readyKots.length - 1];
-      toast.success(`🍳 Food is ready for ${latestReady?.tableName ?? "a table"}!`, { duration: 5000 });
+    const currentReadyIds = new Set(readyKots.map((k) => k.id));
+    if (prevReadyIdsRef.current !== null) {
+      let newlyReadyTable = "";
+      for (const k of readyKots) {
+        if (!prevReadyIdsRef.current.has(k.id)) {
+          newlyReadyTable = k.tableName;
+          break;
+        }
+      }
+      if (newlyReadyTable) {
+        unlockAudio();
+        playNotificationSound("food_ready");
+        toast.success(`🍳 Food is ready for ${newlyReadyTable}!`, { duration: 6000 });
+      }
     }
-    prevReadyCountRef.current = readyKots.length;
+    prevReadyIdsRef.current = currentReadyIds;
   }, [readyKots]);
 
   const billFor = (tableId: string) => {

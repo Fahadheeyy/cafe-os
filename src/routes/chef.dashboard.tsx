@@ -4,7 +4,7 @@
  */
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef } from "react";
-import { Package, Inbox, Trash2, ArrowRight, ChefHat, CheckCircle2, Clock, Utensils, Loader2, NotebookPen, FileText } from "lucide-react";
+import { Package, Inbox, Trash2, ArrowRight, ChefHat, CheckCircle2, Clock, Utensils, Loader2, NotebookPen, FileText, Volume2 } from "lucide-react";
 import { toast } from "sonner";
 import { AuthGuard } from "@/components/auth-guard";
 import { ChefShell } from "@/components/chef-shell";
@@ -14,7 +14,7 @@ import { money } from "@/lib/format";
 import { useAuth } from "@/hooks/use-auth";
 import { useOrders, useSetKitchenStatus } from "@/hooks/use-orders";
 import type { KitchenStatus } from "@/lib/services/orders.service";
-import { playNotificationSound } from "@/lib/sound";
+import { playNotificationSound, unlockAudio } from "@/lib/sound";
 
 export const Route = createFileRoute("/chef/dashboard")({
   ssr: false,
@@ -66,15 +66,32 @@ function ChefDashboard() {
   }, [allKots]);
 
   // Play audio chime and toast notification when new orders arrive in queue
-  const prevCountRef = useRef<number | null>(null);
+  const prevKotIdsRef = useRef<Set<string> | null>(null);
+
   useEffect(() => {
-    const queuedCount = queue.filter((k) => k.kitchenStatus === "queued").length;
-    if (prevCountRef.current !== null && queuedCount > prevCountRef.current) {
-      playNotificationSound("new_order");
-      toast.info("🔔 New order received in kitchen!", { duration: 4000 });
+    const currentIds = new Set(queue.map((k) => k.id));
+    if (prevKotIdsRef.current !== null) {
+      let hasNewTicket = false;
+      for (const id of currentIds) {
+        if (!prevKotIdsRef.current.has(id)) {
+          hasNewTicket = true;
+          break;
+        }
+      }
+      if (hasNewTicket) {
+        unlockAudio();
+        playNotificationSound("new_order");
+        toast.info("🔔 New order received in kitchen!", { duration: 5000 });
+      }
     }
-    prevCountRef.current = queuedCount;
+    prevKotIdsRef.current = currentIds;
   }, [queue]);
+
+  const handleTestSound = () => {
+    unlockAudio();
+    playNotificationSound("new_order");
+    toast.success("🔔 Sound alert test played!", { duration: 3000 });
+  };
 
   const kpis: Array<{ label: string; value: number; tone?: "success" | "warning" | "danger" | "info" }> = [
     { label: "In queue", value: queue.filter((k) => k.kitchenStatus === "queued").length, tone: "info" },
@@ -106,7 +123,18 @@ function ChefDashboard() {
         {kpis.map((k) => <StatCard key={k.label} label={k.label} value={k.value} tone={k.tone} />)}
       </div>
 
-      <SectionCard title="Kitchen queue" icon={ChefHat} action={<span className="text-xs text-muted-foreground">FIFO · oldest first</span>}>
+      <SectionCard
+        title="Kitchen queue"
+        icon={ChefHat}
+        action={
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={handleTestSound} className="h-8 text-xs gap-1.5 border-primary/30 hover:bg-primary/10">
+              <Volume2 className="h-3.5 w-3.5 text-primary" /> Test Sound
+            </Button>
+            <span className="text-xs text-muted-foreground hidden sm:inline">FIFO · oldest first</span>
+          </div>
+        }
+      >
         {queue.length === 0 ? (
           <EmptyState compact icon={Utensils} description="No tickets waiting. Nice work." />
         ) : (
