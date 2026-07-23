@@ -1,6 +1,6 @@
-/** Manager chrome — sidebar with Dashboard (billing) + Orders. */
+/** Manager chrome — sidebar with Dashboard (billing) + Orders + Takeaway. */
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
-import { LogOut, Coffee, Menu, LayoutDashboard, ClipboardList } from "lucide-react";
+import { LogOut, Coffee, Menu, LayoutDashboard, ClipboardList, ShoppingBag } from "lucide-react";
 import { type ReactNode, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetDescription, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
@@ -12,6 +12,7 @@ import { PageErrorBoundary } from "@/components/error-boundary";
 const nav = [
   { to: "/manager/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { to: "/manager/orders", label: "Orders", icon: ClipboardList },
+  { to: "/order/takeaway", label: "Parcel Order", icon: ShoppingBag },
 ] as const;
 
 function Links({ onNav }: { onNav?: () => void }) {

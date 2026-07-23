@@ -3,9 +3,9 @@
  * view + today's revenue KPIs. Managers can settle bills (UPI/Cash) and
  * print receipts but cannot access analytics, menu, or staff admin.
  */
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo } from "react";
-import { Wallet, Banknote, Receipt, TrendingUp } from "lucide-react";
+import { Wallet, Banknote, Receipt, TrendingUp, ShoppingBag, ArrowRight } from "lucide-react";
 import { AuthGuard } from "@/components/auth-guard";
 import { ManagerShell } from "@/components/manager-shell";
 import { FloorOps } from "@/components/floor-ops";
@@ -41,6 +41,21 @@ function ManagerDashboard() {
 
   return (
     <div className="space-y-6">
+      {/* Quick Action: Parcel / Takeaway Order */}
+      <Link
+        to={"/order/takeaway" as any}
+        className="flex items-center gap-4 p-4 rounded-2xl border-2 border-blue-200 bg-blue-50/60 hover:bg-blue-100/60 hover:border-blue-300 transition group"
+      >
+        <div className="grid h-12 w-12 place-items-center rounded-xl bg-blue-600 text-white shrink-0">
+          <ShoppingBag className="h-5 w-5" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="font-semibold text-blue-900">New Parcel / Takeaway Order</p>
+          <p className="text-xs text-blue-600 mt-0.5">Tap to open the POS for a walk-in takeaway customer</p>
+        </div>
+        <ArrowRight className="h-5 w-5 text-blue-400 group-hover:translate-x-0.5 transition" />
+      </Link>
+
       <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
         <StatCard label="Today's revenue" value={formatMoney(kpis.total, currency)} icon={TrendingUp} tone="success" />
         <StatCard label="Bills settled" value={kpis.count} icon={Receipt} />
@@ -51,3 +66,4 @@ function ManagerDashboard() {
     </div>
   );
 }
+
