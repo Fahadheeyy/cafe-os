@@ -14,8 +14,8 @@ export function useCategories() {
 
   // Dynamically compute categories list:
   // 1. Categories present in active products (from Supabase) come first so tabs with items are prominent
-  // 2. Categories in store added by user
-  // 3. Fallback to DEFAULT_CATEGORIES if list is empty
+  // 2. Custom categories added by user in store
+  // 3. Exclude deleted / unused default categories when products exist
   const categories = useMemo(() => {
     const list: string[] = [];
     const seen = new Set<string>();
@@ -28,22 +28,38 @@ export function useCategories() {
       }
     };
 
-    // 1. Add categories from fetched products
+    // 1. Always include categories from fetched products
     for (const p of products) {
       if (p.category) {
         addCat(p.category);
       }
     }
 
-    // 2. Add categories from local store
-    for (const c of storeCategories) {
-      addCat(c);
-    }
-
-    // 3. Fallback to defaults if empty
-    if (list.length === 0) {
-      for (const c of DEFAULT_CATEGORIES) {
+    // 2. If no products exist yet for this business, fallback to storeCategories or defaults
+    if (products.length === 0) {
+      for (const c of storeCategories) {
         addCat(c);
+      }
+      if (list.length === 0) {
+        for (const c of DEFAULT_CATEGORIES) {
+          addCat(c);
+        }
+      }
+    } else {
+      // If products DO exist, include custom categories from storeCategories
+      // ONLY IF they are NOT unassigned default categories (which ensures deleted/unused default categories are excluded).
+      for (const c of storeCategories) {
+        const trimmed = c?.trim();
+        if (!trimmed) continue;
+        const isDefault = DEFAULT_CATEGORIES.some(
+          (d) => d.toLowerCase() === trimmed.toLowerCase(),
+        );
+        const hasProducts = products.some(
+          (p) => p.category?.toLowerCase() === trimmed.toLowerCase(),
+        );
+        if (!isDefault || hasProducts) {
+          addCat(trimmed);
+        }
       }
     }
 
