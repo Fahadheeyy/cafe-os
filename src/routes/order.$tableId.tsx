@@ -121,12 +121,19 @@ function OrderScreen() {
   };
 
   const dec = (id: string) =>
-    setCart((prev) => (prev ?? []).flatMap((i) => (i.productId === id ? (i.qty > 1 ? [{ ...i, qty: i.qty - 1 }] : []) : [i])));
+    setCart((prev) => (prev ?? []).flatMap((i) => {
+      const match = i.productId ? i.productId === id : i.name === id;
+      return match ? (i.qty > 1 ? [{ ...i, qty: i.qty - 1 }] : []) : [i];
+    }));
 
-  const remove = (id: string) => setCart((prev) => (prev ?? []).filter((i) => i.productId !== id));
+  const remove = (id: string) =>
+    setCart((prev) => (prev ?? []).filter((i) => (i.productId ? i.productId !== id : i.name !== id)));
 
   const updateItemNotes = (productId: string, notes: string) => {
-    setCart((prev) => (prev ?? []).map((i) => (i.productId === productId ? { ...i, notes } : i)));
+    setCart((prev) => (prev ?? []).map((i) => {
+      const match = i.productId ? i.productId === productId : i.name === productId;
+      return match ? { ...i, notes } : i;
+    }));
   };
 
   const saveOrder = async () => {
@@ -464,7 +471,7 @@ function CartPanel({
                     <p className="text-xs text-muted-foreground">{money(i.price, currency)} each</p>
                   </div>
                   <button
-                    onClick={() => i.productId && onRemove(i.productId)}
+                    onClick={() => onRemove(i.productId ?? i.name)}
                     className="text-muted-foreground hover:text-destructive p-1"
                     aria-label={`Remove ${i.name}`}
                   >
@@ -474,7 +481,7 @@ function CartPanel({
                 <div className="flex items-center justify-between mt-2">
                   <div className="flex items-center gap-2">
                     <button
-                      onClick={() => i.productId && onDec(i.productId)}
+                      onClick={() => onDec(i.productId ?? i.name)}
                       className="h-8 w-8 rounded-lg border grid place-items-center hover:bg-accent active:scale-95 transition"
                       aria-label={`Decrease ${i.name}`}
                     >
@@ -482,7 +489,7 @@ function CartPanel({
                     </button>
                     <span className="w-6 text-center text-sm font-medium" aria-live="polite">{i.qty}</span>
                     <button
-                      onClick={() => i.productId && onAdd(i.productId)}
+                      onClick={() => onAdd(i.productId ?? i.name)}
                       className="h-8 w-8 rounded-lg border grid place-items-center hover:bg-accent active:scale-95 transition"
                       aria-label={`Increase ${i.name}`}
                     >
@@ -499,7 +506,7 @@ function CartPanel({
                     type="text"
                     placeholder="Item note (e.g. less spicy, customer opinion...)"
                     value={i.notes ?? ""}
-                    onChange={(e) => i.productId && onUpdateItemNotes(i.productId, e.target.value)}
+                    onChange={(e) => onUpdateItemNotes(i.productId ?? i.name, e.target.value)}
                     className="w-full text-xs bg-muted/50 border rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-primary"
                   />
                 </div>

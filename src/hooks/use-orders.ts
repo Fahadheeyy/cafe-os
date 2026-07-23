@@ -67,9 +67,10 @@ export function useOpenOrder(tableId: string | undefined) {
     queryKey: tableId ? orderKeys.open(bid, tableId) : ["orders", "open", "none"],
     queryFn: () => getOpenOrder(tableId!),
     enabled: !!bid && !!tableId,
-    staleTime: 2_000,
+    staleTime: 0, // always fetch fresh to avoid double-sending items on table reopen
   });
 }
+
 
 export function useOrderById(id: string | undefined) {
   const { business } = useAuth();

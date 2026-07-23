@@ -24,8 +24,9 @@ export function useProducts() {
     queryKey: productKeys.all(bid),
     queryFn: listProducts,
     enabled: !!profile,
-    staleTime: 30_000,
+    staleTime: 0, // realtime invalidations must trigger immediate refetches
   });
+
 
   useEffect(() => {
     if (!bid) return;

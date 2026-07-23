@@ -40,7 +40,14 @@ function Purchases() {
   const currency = business?.currency ?? "INR";
   const { data: suppliers = [] } = useSuppliers();
   const deleteM = useDeletePurchase();
-  const deletePurchase = (id: string) => deleteM.mutateAsync(id);
+  const deletePurchase = async (id: string) => {
+    try {
+      await deleteM.mutateAsync(id);
+      toast.success("Deleted");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Delete failed");
+    }
+  };
   const [q, setQ] = useState("");
   const [supplier, setSupplier] = useState<string>("all");
   const [open, setOpen] = useState(false);
@@ -104,7 +111,7 @@ function Purchases() {
                     <td className="px-4 py-3 text-muted-foreground">{p.items.length} items</td>
                     <td className="px-4 py-3 text-right font-semibold">{formatMoney(p.total, currency)}</td>
                     <td className="px-4 py-3 text-right">
-                      <Button variant="ghost" size="sm" aria-label="Delete purchase" onClick={() => { if (confirm("Delete this purchase? Stock will not be reversed.")) { deletePurchase(p.id); toast.success("Deleted"); } }}>
+                      <Button variant="ghost" size="sm" aria-label="Delete purchase" onClick={() => { if (confirm("Delete this purchase? Stock will not be reversed.")) deletePurchase(p.id); }}>
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </td>
@@ -125,7 +132,7 @@ function Purchases() {
                 </div>
                 <div className="flex flex-col items-end gap-1 shrink-0">
                   <span className="font-semibold text-sm">{formatMoney(p.total, currency)}</span>
-                  <Button variant="ghost" size="sm" className="h-7 px-2" aria-label="Delete purchase" onClick={() => { if (confirm("Delete this purchase? Stock will not be reversed.")) { deletePurchase(p.id); toast.success("Deleted"); } }}>
+                  <Button variant="ghost" size="sm" className="h-7 px-2" aria-label="Delete purchase" onClick={() => { if (confirm("Delete this purchase? Stock will not be reversed.")) deletePurchase(p.id); }}>
                     <Trash2 className="h-3.5 w-3.5" />
                   </Button>
                 </div>
@@ -177,20 +184,24 @@ function NewPurchaseForm({ onDone }: { onDone: () => void }) {
   const taxAmt = Number(tax) || 0;
   const grand = subtotal + taxAmt;
 
-  const submit = () => {
+  const submit = async () => {
     const sup = newSupplier.trim() || supplier;
     if (!sup) { toast.error("Supplier required"); return; }
     if (lines.length === 0) { toast.error("Add at least one item"); return; }
-    
-    record({
-      supplier: sup,
-      invoiceNumber: invoice.trim() || undefined,
-      purchaseDate: new Date(date + "T00:00:00").getTime(),
-      items: lines,
-      tax: taxAmt,
-    });
-    toast.success("Purchase recorded");
-    onDone();
+    if (lines.some((l) => !l.stockItemId)) { toast.error("Select a stock item for every line"); return; }
+    try {
+      await record({
+        supplier: sup,
+        invoiceNumber: invoice.trim() || undefined,
+        purchaseDate: new Date(date + "T00:00:00").getTime(),
+        items: lines,
+        tax: taxAmt,
+      });
+      toast.success("Purchase recorded");
+      onDone();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to record purchase");
+    }
   };
 
   return (
@@ -260,7 +271,9 @@ function NewPurchaseForm({ onDone }: { onDone: () => void }) {
         </div>
       </div>
       <DialogFooter>
-        <Button onClick={submit}>Save Purchase</Button>
+        <Button onClick={submit} disabled={recordM.isPending}>
+          {recordM.isPending ? "Saving…" : "Save Purchase"}
+        </Button>
       </DialogFooter>
     </DialogContent>
   );

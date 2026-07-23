@@ -83,9 +83,14 @@ export function printBill(order: Order, settings: PrintSettings) {
   try {
     const w = window.open("", "_blank", "width=380,height=640");
     if (!w) throw new Error("Print window was blocked. Please allow pop-ups for this site.");
-    w.document.open();
-    w.document.write(html);
-    w.document.close();
+    try {
+      w.document.open();
+      w.document.write(html);
+      w.document.close();
+    } catch (writeErr) {
+      w.close(); // prevent orphaned blank popup
+      throw writeErr;
+    }
     return true;
   } catch (err) {
     if (err instanceof Error) throw err;
