@@ -56,12 +56,19 @@ function OrderScreen() {
   const [cart, setCart] = useState<OrderItem[] | null>(null);
   const [orderNotes, setOrderNotes] = useState<string>("");
   const [cat, setCat] = useState<Category>(categories[0] ?? "Tea");
+  const [userSelectedCat, setUserSelectedCat] = useState(false);
 
   useEffect(() => {
-    if (categories.length > 0 && !categories.includes(cat)) {
-      setCat(categories[0]);
+    if (categories.length > 0) {
+      if (!categories.includes(cat)) {
+        const firstWithProducts = categories.find((c) => products.some((p) => p.category === c));
+        setCat(firstWithProducts ?? categories[0]);
+      } else if (!userSelectedCat && products.length > 0 && !products.some((p) => p.category === cat)) {
+        const firstWithProducts = categories.find((c) => products.some((p) => p.category === c));
+        if (firstWithProducts) setCat(firstWithProducts);
+      }
     }
-  }, [categories, cat]);
+  }, [categories, products, cat, userSelectedCat]);
   const [q, setQ] = useState("");
   const [cartOpen, setCartOpen] = useState(false);
   const [method, setMethod] = useState<PaymentMethod>("upi");
@@ -271,7 +278,10 @@ function OrderScreen() {
               {categories.map((c) => (
                 <button
                   key={c}
-                  onClick={() => setCat(c)}
+                  onClick={() => {
+                    setCat(c);
+                    setUserSelectedCat(true);
+                  }}
                   className={`px-4 h-9 rounded-full text-sm font-medium whitespace-nowrap transition ${
                     cat === c ? "bg-primary text-primary-foreground shadow-sm" : "bg-muted text-muted-foreground hover:bg-accent"
                   }`}
