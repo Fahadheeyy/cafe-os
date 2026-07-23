@@ -38,6 +38,7 @@ function ChefDashboard() {
   const { business } = useAuth();
   const currency = business?.currency ?? "₹";
   const { data: orders = [], isLoading, isError, error, refetch } = useOrders();
+
   const setKitchen = useSetKitchenStatus();
 
   const allKots = useMemo(() => {

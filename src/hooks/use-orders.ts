@@ -33,24 +33,27 @@ export function useOrders() {
     queryKey: orderKeys.all(bid),
     queryFn: listOrders,
     enabled: !!bid,
-    staleTime: 5_000,
+    staleTime: 0,           // always treat as stale so invalidation always refetches
+    refetchOnWindowFocus: true,
+    refetchInterval: 10_000, // 10s polling fallback if realtime drops
   });
+
 
   useEffect(() => {
     if (!bid) return;
     const channelId = crypto.randomUUID();
+    const invalidate = () => qc.invalidateQueries({ queryKey: ["orders", bid] });
     const channel = supabase
       .channel(`orders:${bid}:${channelId}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "orders" }, () => {
-        qc.invalidateQueries({ queryKey: ["orders", bid] });
-      })
-      .on("postgres_changes", { event: "*", schema: "public", table: "order_items" }, () => {
-        qc.invalidateQueries({ queryKey: ["orders", bid] });
-      })
-      .on("postgres_changes", { event: "*", schema: "public", table: "kots" }, () => {
-        qc.invalidateQueries({ queryKey: ["orders", bid] });
-      })
-      .subscribe();
+      .on("postgres_changes", { event: "*", schema: "public", table: "orders" }, invalidate)
+      .on("postgres_changes", { event: "*", schema: "public", table: "order_items" }, invalidate)
+      .on("postgres_changes", { event: "*", schema: "public", table: "kots" }, invalidate)
+      .subscribe((status) => {
+        // If subscription fails to connect, schedule a fallback refetch
+        if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+          qc.invalidateQueries({ queryKey: ["orders", bid] });
+        }
+      });
     return () => { supabase.removeChannel(channel); };
   }, [bid, qc]);
 
